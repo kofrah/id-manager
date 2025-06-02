@@ -5,6 +5,8 @@ import {
   deleteSearchWord,
   getAllSearchWords,
   updateSearchWordStatus,
+  getGlobalSettings,
+  setGlobalSetting,
 } from "@/utils/database";
 import React, { useEffect, useState } from "react";
 import {
@@ -25,10 +27,23 @@ export default function SettingsScreen() {
   const [searchWords, setSearchWords] = useState<SearchWord[]>([]);
   const [newWord, setNewWord] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [useSearchWords, setUseSearchWords] = useState<boolean>(true);
 
   useEffect(() => {
     loadSearchWords();
+    loadGlobalSettings();
   }, []);
+
+  const loadGlobalSettings = async () => {
+    const settings = await getGlobalSettings();
+    setUseSearchWords(settings.useSearchWords);
+  };
+
+  const handleToggleUseSearchWords = async () => {
+    const newValue = !useSearchWords;
+    setUseSearchWords(newValue);
+    await setGlobalSetting('useSearchWords', newValue);
+  };
 
   const loadSearchWords = async () => {
     const words = await getAllSearchWords();
@@ -69,17 +84,19 @@ export default function SettingsScreen() {
   const renderSearchWord = ({ item }: { item: SearchWord }) => (
     <View style={styles.wordItem}>
       <TouchableOpacity
-        style={styles.checkbox}
-        onPress={() => handleToggleWord(item.id, item.isActive)}
+        style={[styles.checkbox, !useSearchWords ? styles.checkboxDisabled : null]}
+        onPress={() => useSearchWords && handleToggleWord(item.id, item.isActive)}
+        disabled={!useSearchWords}
       >
         <View
           style={[
             styles.checkboxInner,
             item.isActive ? styles.checkboxChecked : null,
+            !useSearchWords ? styles.checkboxInnerDisabled : null,
           ]}
         >
           {item.isActive ? (
-            <IconSymbol name="checkmark" size={16} color="#FFFFFF" />
+            <IconSymbol name="checkmark" size={16} color={useSearchWords ? "#FFFFFF" : "#C7C7CC"} />
           ) : null}
         </View>
       </TouchableOpacity>
@@ -87,6 +104,7 @@ export default function SettingsScreen() {
         style={[
           styles.wordText,
           !item.isActive ? styles.wordTextInactive : null,
+          !useSearchWords ? styles.wordTextDisabled : null,
         ]}
       >
         {item.word}
@@ -101,6 +119,7 @@ export default function SettingsScreen() {
   );
 
   const getPreviewText = () => {
+    if (!useSearchWords) return "1234567";
     const activeWords = searchWords
       .filter((w) => w.isActive)
       .map((w) => w.word);
@@ -158,6 +177,27 @@ export default function SettingsScreen() {
             </View>
 
             <View style={styles.card}>
+              <View style={styles.searchWordHeader}>
+                <Text style={styles.label}>検索ワードを使う</Text>
+                <TouchableOpacity
+                  style={styles.toggle}
+                  onPress={handleToggleUseSearchWords}
+                >
+                  <View
+                    style={[
+                      styles.toggleTrack,
+                      useSearchWords ? styles.toggleTrackActive : null,
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.toggleThumb,
+                        useSearchWords ? styles.toggleThumbActive : null,
+                      ]}
+                    />
+                  </View>
+                </TouchableOpacity>
+              </View>
               <Text style={styles.label}>登録済み検索ワード</Text>
               {searchWords.length === 0 ? (
                 <Text style={styles.emptyText}>
@@ -327,5 +367,48 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#000000",
     fontWeight: "500",
+  },
+  searchWordHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  toggle: {
+    padding: 4,
+  },
+  toggleTrack: {
+    width: 51,
+    height: 31,
+    borderRadius: 15.5,
+    backgroundColor: "#E9E9EA",
+    padding: 2,
+  },
+  toggleTrackActive: {
+    backgroundColor: "#34C759",
+  },
+  toggleThumb: {
+    width: 27,
+    height: 27,
+    borderRadius: 13.5,
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  toggleThumbActive: {
+    transform: [{ translateX: 20 }],
+  },
+  checkboxDisabled: {
+    opacity: 0.5,
+  },
+  checkboxInnerDisabled: {
+    borderColor: "#E5E5EA",
+    backgroundColor: "#F2F2F7",
+  },
+  wordTextDisabled: {
+    color: "#C7C7CC",
   },
 });

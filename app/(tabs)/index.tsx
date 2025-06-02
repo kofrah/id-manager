@@ -10,6 +10,7 @@ import {
   initDatabase,
   searchIDs,
   updateID,
+  getGlobalSettings,
 } from "@/utils/database";
 import { Linking } from "react-native";
 import React, { useEffect, useState } from "react";
@@ -85,9 +86,15 @@ export default function HomeScreen() {
   const handleWebSearch = async () => {
     if (!searchQuery.trim()) return;
     
-    const activeWords = await getActiveSearchWords();
-    const prefixes = activeWords.map((w) => w.word).join(" ");
-    const fullSearchQuery = prefixes ? `${prefixes} ${searchQuery}` : searchQuery;
+    const settings = await getGlobalSettings();
+    let fullSearchQuery = searchQuery;
+    
+    if (settings.useSearchWords) {
+      const activeWords = await getActiveSearchWords();
+      const prefixes = activeWords.map((w) => w.word).join(" ");
+      fullSearchQuery = prefixes ? `${prefixes} ${searchQuery}` : searchQuery;
+    }
+    
     // Use x-web-search URL scheme to let the OS decide which browser to use
     const url = `x-web-search://?${encodeURIComponent(fullSearchQuery)}`;
     try {
@@ -100,9 +107,15 @@ export default function HomeScreen() {
   };
 
   const handleItemWebSearch = async (query: string) => {
-    const activeWords = await getActiveSearchWords();
-    const prefixes = activeWords.map((w) => w.word).join(" ");
-    const fullSearchQuery = prefixes ? `${prefixes} ${query}` : query;
+    const settings = await getGlobalSettings();
+    let fullSearchQuery = query;
+    
+    if (settings.useSearchWords) {
+      const activeWords = await getActiveSearchWords();
+      const prefixes = activeWords.map((w) => w.word).join(" ");
+      fullSearchQuery = prefixes ? `${prefixes} ${query}` : query;
+    }
+    
     // Use x-web-search URL scheme to let the OS decide which browser to use
     const url = `x-web-search://?${encodeURIComponent(fullSearchQuery)}`;
     try {

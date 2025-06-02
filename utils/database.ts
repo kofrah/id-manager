@@ -16,6 +16,10 @@ export interface SearchWord {
   createdAt: string;
 }
 
+export interface GlobalSettings {
+  useSearchWords: boolean;
+}
+
 let db: SQLite.SQLiteDatabase | null = null;
 
 // Initialize database connection only on mobile platforms
@@ -48,6 +52,20 @@ export const initDatabase = async () => {
     );
   `);
   
+  // Create global_settings table
+  await database.execAsync(`
+    CREATE TABLE IF NOT EXISTS global_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+  `);
+
+  // Initialize default global settings
+  const useSearchWordsExists = await database.getFirstAsync('SELECT * FROM global_settings WHERE key = ?', ['useSearchWords']);
+  if (!useSearchWordsExists) {
+    await database.runAsync('INSERT INTO global_settings (key, value) VALUES (?, ?)', ['useSearchWords', 'true']);
+  }
+
   // Initialize default search word if table is empty
   const count = await database.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM search_words');
   if (count && count.count === 0) {
@@ -207,4 +225,18 @@ export const getSearchPrefix = async (): Promise<string> => {
 
 export const setSearchPrefix = async (_prefix: string): Promise<void> => {
   // Legacy function - no longer used
+};
+
+export const getGlobalSettings = async (): Promise<GlobalSettings> => {
+  const database = ensureDatabase();
+  const useSearchWords = await database.getFirstAsync<{ value: string }>('SELECT value FROM global_settings WHERE key = ?', ['useSearchWords']);
+  
+  return {
+    useSearchWords: useSearchWords?.value === 'true'
+  };
+};
+
+export const setGlobalSetting = async (key: keyof GlobalSettings, value: boolean): Promise<void> => {
+  const database = ensureDatabase();
+  await database.runAsync('UPDATE global_settings SET value = ? WHERE key = ?', [value.toString(), key]);
 };
