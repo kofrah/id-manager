@@ -451,7 +451,8 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
+    flexWrap: "wrap",
   },
   previewLabel: {
     fontSize: 14,
@@ -462,6 +463,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#000000",
     fontWeight: "500",
+    flex: 1,
   },
   searchWordHeader: {
     flexDirection: "row",
