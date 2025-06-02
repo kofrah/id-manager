@@ -44,14 +44,12 @@ export function IDList({ ids, onSelectID, onDeleteID, onRefresh, refreshing, onS
       <TouchableOpacity style={styles.item} onPress={() => onSelectID(item)}>
         <View style={styles.itemContent}>
           <View style={styles.itemInfo}>
-            <View style={styles.titleRow}>
-              <Text style={styles.title}>{item.title}</Text>
-              {item.notes && (
-                <Text style={styles.notes} numberOfLines={1}>
-                  {item.notes}
-                </Text>
-              )}
-            </View>
+            <Text style={styles.title}>{item.title}</Text>
+            {item.notes && (
+              <Text style={styles.notes} numberOfLines={2}>
+                {item.notes}
+              </Text>
+            )}
           </View>
           <TouchableOpacity
             style={styles.searchButton}
@@ -103,22 +101,17 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 12,
   },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
   title: {
     fontSize: 17,
     fontWeight: '600',
     color: '#000000',
     letterSpacing: 0.2,
-    marginRight: 8,
+    marginBottom: 4,
   },
   notes: {
     fontSize: 14,
     color: '#8E8E93',
-    flex: 1,
+    lineHeight: 18,
   },
   searchButton: {
     padding: 10,
