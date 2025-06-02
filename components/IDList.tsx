@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { FlatList, TouchableOpacity, View, Text, StyleSheet, Alert } from 'react-native';
-import { Swipeable } from 'react-native-gesture-handler';
-import { IDItem, SearchWord, getAllSearchWords } from '@/utils/database';
+import { TouchableOpacity, View, Text, StyleSheet, Alert } from 'react-native';
+import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler';
+import DraggableFlatList, { ScaleDecorator, RenderItemParams } from 'react-native-draggable-flatlist';
+import { IDItem, SearchWord, getAllSearchWords, updateSortOrder } from '@/utils/database';
 import { IconSymbol } from './ui/IconSymbol';
+import * as Haptics from 'expo-haptics';
 
 interface IDListProps {
   ids: IDItem[];
@@ -15,6 +17,7 @@ interface IDListProps {
 
 export function IDList({ ids, onSelectID, onDeleteID, onRefresh, refreshing, onSearch }: IDListProps) {
   const [searchWords, setSearchWords] = useState<SearchWord[]>([]);
+  const [data, setData] = useState(ids);
   const swipeableRefs = useRef<{ [key: number]: Swipeable | null }>({});
 
   useEffect(() => {
@@ -23,7 +26,8 @@ export function IDList({ ids, onSelectID, onDeleteID, onRefresh, refreshing, onS
 
   useEffect(() => {
     loadSearchWords();
-  }, [ids]); // IDが変更されたときも検索ワードを再読み込み
+    setData(ids);
+  }, [ids]);
 
   const loadSearchWords = async () => {
     try {
@@ -37,9 +41,6 @@ export function IDList({ ids, onSelectID, onDeleteID, onRefresh, refreshing, onS
   const getSelectedSearchWords = (searchWordIds?: number[]) => {
     if (!searchWordIds || searchWordIds.length === 0) return [];
     const selectedWords = searchWords.filter(word => searchWordIds.includes(word.id));
-    console.log('Search word IDs:', searchWordIds);
-    console.log('Available search words:', searchWords);
-    console.log('Selected search words:', selectedWords);
     return selectedWords;
   };
 
@@ -68,60 +69,86 @@ export function IDList({ ids, onSelectID, onDeleteID, onRefresh, refreshing, onS
     </View>
   );
 
-  const renderItem = ({ item }: { item: IDItem }) => (
-    <Swipeable
-      ref={(ref) => { swipeableRefs.current[item.id] = ref; }}
-      renderRightActions={renderRightActions}
-      onSwipeableOpen={() => handleDelete(item.id, item.title)}
-      rightThreshold={80}
-    >
-      <TouchableOpacity style={styles.item} onPress={() => onSelectID(item)}>
-        <View style={styles.itemContent}>
-          <View style={styles.itemInfo}>
-            <View style={styles.titleContainer}>
-              <Text style={styles.title}>{item.title}</Text>
-              {getSelectedSearchWords(item.searchWordIds).length > 0 && (
-                <View style={styles.searchWordBadges}>
-                  {getSelectedSearchWords(item.searchWordIds).map((word) => (
-                    <View key={word.id} style={styles.searchWordItem}>
-                      <View style={[styles.colorIndicator, { backgroundColor: word.color }]} />
-                      <Text style={styles.searchWordText}>{word.word}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
-            {item.notes && (
-              <Text style={styles.notes} numberOfLines={2}>
-                {item.notes}
-              </Text>
-            )}
-          </View>
-          <TouchableOpacity
-            style={styles.searchButton}
-            onPress={() => onSearch(item.notes ? `${item.title} ${item.notes}` : item.title, item)}
-            hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+  const handleDragEnd = async ({ data: newData }: { data: IDItem[] }) => {
+    setData(newData);
+    
+    // 並び順を保存
+    const updates = newData.map((item, index) => ({
+      id: item.id,
+      sortOrder: index
+    }));
+    await updateSortOrder(updates);
+    onRefresh();
+  };
+
+  const renderItem = ({ item, drag, isActive }: RenderItemParams<IDItem>) => {
+    return (
+      <ScaleDecorator>
+        <Swipeable
+          ref={(ref) => { swipeableRefs.current[item.id] = ref; }}
+          renderRightActions={renderRightActions}
+          onSwipeableOpen={() => handleDelete(item.id, item.title)}
+          rightThreshold={80}
+          enabled={!isActive}
+        >
+          <TouchableOpacity 
+            style={[styles.item, isActive && styles.activeItem]} 
+            onPress={() => onSelectID(item)}
+            onLongPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              drag();
+            }}
+            delayLongPress={200}
           >
-            <IconSymbol name="magnifyingglass" size={20} color="#007AFF" />
+            <View style={styles.itemContent}>
+              <View style={styles.itemInfo}>
+                <View style={styles.titleContainer}>
+                  <Text style={styles.title}>{item.title}</Text>
+                  {getSelectedSearchWords(item.searchWordIds).length > 0 && (
+                    <View style={styles.searchWordBadges}>
+                      {getSelectedSearchWords(item.searchWordIds).map((word) => (
+                        <View key={word.id} style={styles.searchWordItem}>
+                          <View style={[styles.colorIndicator, { backgroundColor: word.color }]} />
+                          <Text style={styles.searchWordText}>{word.word}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+                {item.notes && (
+                  <Text style={styles.notes} numberOfLines={2}>
+                    {item.notes}
+                  </Text>
+                )}
+              </View>
+              <TouchableOpacity
+                style={styles.searchButton}
+                onPress={() => onSearch(item.notes ? `${item.title} ${item.notes}` : item.title, item)}
+                hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+              >
+                <IconSymbol name="magnifyingglass" size={20} color="#007AFF" />
+              </TouchableOpacity>
+            </View>
           </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
-    </Swipeable>
-  );
+        </Swipeable>
+      </ScaleDecorator>
+    );
+  };
 
   return (
-    <FlatList
-      data={ids}
-      renderItem={renderItem}
-      keyExtractor={(item) => item.id.toString()}
-      onRefresh={onRefresh}
-      refreshing={refreshing}
-      ListEmptyComponent={
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>IDが登録されていません</Text>
-        </View>
-      }
-    />
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <DraggableFlatList
+        data={data}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.id.toString()}
+        onDragEnd={handleDragEnd}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>IDが登録されていません</Text>
+          </View>
+        }
+      />
+    </GestureHandlerRootView>
   );
 }
 
@@ -137,6 +164,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 3,
+  },
+  activeItem: {
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
   },
   itemContent: {
     flexDirection: 'row',

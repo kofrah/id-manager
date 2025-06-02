@@ -6,6 +6,7 @@ export interface IDItem {
   title: string;
   notes?: string;
   searchWordIds?: number[];
+  sortOrder?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -136,6 +137,7 @@ export const initDatabase = async () => {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
       notes TEXT,
+      sortOrder INTEGER,
       createdAt TEXT NOT NULL,
       updatedAt TEXT NOT NULL
     );
@@ -148,6 +150,7 @@ export const initDatabase = async () => {
     const hasPasswordColumn = tableInfo.some((col: any) => col.name === 'password');
     const hasSearchWordColumn = tableInfo.some((col: any) => col.name === 'searchWord');
     const hasSearchWordColorColumn = tableInfo.some((col: any) => col.name === 'searchWordColor');
+    const hasSortOrderColumn = tableInfo.some((col: any) => col.name === 'sortOrder');
     
     if (hasUsernameColumn || hasPasswordColumn || hasSearchWordColumn || hasSearchWordColorColumn) {
       // Create new table with updated schema
@@ -156,6 +159,7 @@ export const initDatabase = async () => {
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           title TEXT NOT NULL,
           notes TEXT,
+          sortOrder INTEGER,
           createdAt TEXT NOT NULL,
           updatedAt TEXT NOT NULL
         );
@@ -163,13 +167,21 @@ export const initDatabase = async () => {
       
       // Copy data from old table to new table (excluding removed columns)
       await database.execAsync(`
-        INSERT INTO ids_new (id, title, notes, createdAt, updatedAt)
-        SELECT id, title, notes, createdAt, updatedAt FROM ids;
+        INSERT INTO ids_new (id, title, notes, sortOrder, createdAt, updatedAt)
+        SELECT id, title, notes, NULL, createdAt, updatedAt FROM ids;
       `);
       
       // Drop old table and rename new table
       await database.execAsync('DROP TABLE ids;');
       await database.execAsync('ALTER TABLE ids_new RENAME TO ids;');
+    } else if (!hasSortOrderColumn) {
+      // Add sortOrder column if it doesn't exist
+      await database.execAsync('ALTER TABLE ids ADD COLUMN sortOrder INTEGER;');
+      // Initialize sortOrder based on current ordering
+      const allItems = await database.getAllAsync<{ id: number }>('SELECT id FROM ids ORDER BY updatedAt DESC');
+      for (let i = 0; i < allItems.length; i++) {
+        await database.runAsync('UPDATE ids SET sortOrder = ? WHERE id = ?', [i, allItems[i].id]);
+      }
     }
   } catch {
     console.log('Migration check completed or not needed');
@@ -200,7 +212,7 @@ export const initDatabase = async () => {
 
 export const getAllIDs = async (): Promise<IDItem[]> => {
   const database = ensureDatabase();
-  const result = await database.getAllAsync<Omit<IDItem, 'searchWordIds'>>('SELECT * FROM ids ORDER BY updatedAt DESC');
+  const result = await database.getAllAsync<Omit<IDItem, 'searchWordIds'>>('SELECT * FROM ids ORDER BY COALESCE(sortOrder, 999999), updatedAt DESC');
   
   // Get search word IDs for each item
   const itemsWithSearchWords = await Promise.all(
@@ -242,9 +254,13 @@ export const createID = async (title: string, notes?: string, searchWordIds?: nu
   const database = ensureDatabase();
   const now = new Date().toISOString();
   
+  // Get the current minimum sortOrder to add new item at the top
+  const minSort = await database.getFirstAsync<{ minOrder: number | null }>('SELECT MIN(sortOrder) as minOrder FROM ids');
+  const newSortOrder = (minSort?.minOrder ?? 0) - 1;
+  
   const result = await database.runAsync(
-    'INSERT INTO ids (title, notes, createdAt, updatedAt) VALUES (?, ?, ?, ?)',
-    [title, notes || '', now, now]
+    'INSERT INTO ids (title, notes, sortOrder, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?)',
+    [title, notes || '', newSortOrder, now, now]
   );
   
   const insertedId = result.lastInsertRowId;
@@ -422,4 +438,15 @@ export const buildSearchQuery = async (baseQuery: string, itemSearchWordIds?: nu
   }
   
   return searchWords.length > 0 ? `${searchWords.join(' ')} ${baseQuery}` : baseQuery;
+};
+
+export const updateSortOrder = async (items: { id: number; sortOrder: number }[]): Promise<void> => {
+  const database = ensureDatabase();
+  
+  // バッチ更新のためにトランザクションを使用
+  await database.withTransactionAsync(async () => {
+    for (const item of items) {
+      await database.runAsync('UPDATE ids SET sortOrder = ? WHERE id = ?', [item.sortOrder, item.id]);
+    }
+  });
 };
