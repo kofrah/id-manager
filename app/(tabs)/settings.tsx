@@ -545,14 +545,6 @@ const styles = StyleSheet.create({
     height: 16,
     borderRadius: 3,
   },
-  wordText: {
-    flex: 1,
-    fontSize: 16,
-    color: "#000000",
-  },
-  wordTextInactive: {
-    color: "#8E8E93",
-  },
   previewCard: {
     marginBottom: 32,
   },

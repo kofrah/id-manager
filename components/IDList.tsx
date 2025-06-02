@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { FlatList, TouchableOpacity, View, Text, StyleSheet, Alert } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { IDItem, SearchWord, getAllSearchWords } from '@/utils/database';
@@ -15,6 +15,7 @@ interface IDListProps {
 
 export function IDList({ ids, onSelectID, onDeleteID, onRefresh, refreshing, onSearch }: IDListProps) {
   const [searchWords, setSearchWords] = useState<SearchWord[]>([]);
+  const swipeableRefs = useRef<{ [key: number]: Swipeable | null }>({});
 
   useEffect(() => {
     loadSearchWords();
@@ -47,7 +48,11 @@ export function IDList({ ids, onSelectID, onDeleteID, onRefresh, refreshing, onS
       '削除の確認',
       `"${title}" を削除してもよろしいですか？`,
       [
-        { text: 'キャンセル', style: 'cancel' },
+        { 
+          text: 'キャンセル', 
+          style: 'cancel',
+          onPress: () => swipeableRefs.current[id]?.close()
+        },
         { 
           text: '削除', 
           onPress: () => onDeleteID(id),
@@ -65,6 +70,7 @@ export function IDList({ ids, onSelectID, onDeleteID, onRefresh, refreshing, onS
 
   const renderItem = ({ item }: { item: IDItem }) => (
     <Swipeable
+      ref={(ref) => { swipeableRefs.current[item.id] = ref; }}
       renderRightActions={renderRightActions}
       onSwipeableOpen={() => handleDelete(item.id, item.title)}
       rightThreshold={80}
