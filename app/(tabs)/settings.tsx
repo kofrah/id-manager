@@ -4,9 +4,10 @@ import {
   createSearchWord,
   deleteSearchWord,
   getAllSearchWords,
-  updateSearchWordStatus,
   getGlobalSettings,
+  getIDsUsingSearchWord,
   setGlobalSetting,
+  updateSearchWordStatus,
 } from "@/utils/database";
 import React, { useEffect, useState } from "react";
 import {
@@ -23,9 +24,25 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+const SEARCH_WORD_COLORS = [
+  "#FF6B6B",
+  "#4ECDC4",
+  "#45B7D1",
+  "#96CEB4",
+  "#FFEAA7",
+  "#DDA0DD",
+  "#98D8C8",
+  "#F7DC6F",
+  "#BB8FCE",
+  "#85C1E9",
+];
+
 export default function SettingsScreen() {
   const [searchWords, setSearchWords] = useState<SearchWord[]>([]);
   const [newWord, setNewWord] = useState<string>("");
+  const [newWordColor, setNewWordColor] = useState<string>(
+    SEARCH_WORD_COLORS[0]
+  );
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [useSearchWords, setUseSearchWords] = useState<boolean>(true);
 
@@ -42,7 +59,7 @@ export default function SettingsScreen() {
   const handleToggleUseSearchWords = async () => {
     const newValue = !useSearchWords;
     setUseSearchWords(newValue);
-    await setGlobalSetting('useSearchWords', newValue);
+    await setGlobalSetting("useSearchWords", newValue);
   };
 
   const loadSearchWords = async () => {
@@ -53,13 +70,20 @@ export default function SettingsScreen() {
 
   const handleAddWord = async () => {
     if (!newWord.trim()) {
-      Alert.alert("エラー", "検索ワードを入力してください");
+      Alert.alert("エラー", "キーワードを入力してください");
       return;
     }
 
-    await createSearchWord(newWord.trim());
-    setNewWord("");
-    await loadSearchWords();
+    try {
+      await createSearchWord(newWord.trim(), newWordColor);
+      setNewWord("");
+      setNewWordColor(SEARCH_WORD_COLORS[0]);
+      await loadSearchWords();
+      Alert.alert("成功", "キーワードを追加しました");
+    } catch (error) {
+      console.error("Error adding search word:", error);
+      Alert.alert("エラー", "キーワードの追加に失敗しました");
+    }
   };
 
   const handleToggleWord = async (id: number, currentStatus: boolean) => {
@@ -68,24 +92,66 @@ export default function SettingsScreen() {
   };
 
   const handleDeleteWord = async (id: number, word: string) => {
-    Alert.alert("削除の確認", `"${word}" を削除してもよろしいですか？`, [
-      { text: "キャンセル", style: "cancel" },
-      {
-        text: "削除",
-        onPress: async () => {
-          await deleteSearchWord(id);
-          await loadSearchWords();
-        },
-        style: "destructive",
-      },
-    ]);
+    try {
+      // Check if this search word is being used by any IDs
+      const relatedIDs = await getIDsUsingSearchWord(id);
+
+      if (relatedIDs.length > 0) {
+        // Show confirmation dialog with details about related IDs
+        const idTitles = relatedIDs
+          .slice(0, 3)
+          .map((item) => `"${item.title}"`)
+          .join(", ");
+        const moreCount =
+          relatedIDs.length > 3 ? ` など${relatedIDs.length}件` : "";
+
+        Alert.alert(
+          "削除の確認",
+          `"${word}" は ${idTitles}${moreCount}のIDで使用されています。\n\n削除すると、これらのIDからもキーワードが削除されます。本当に削除してもよろしいですか？`,
+          [
+            { text: "キャンセル", style: "cancel" },
+            {
+              text: "削除",
+              onPress: async () => {
+                await deleteSearchWord(id);
+                await loadSearchWords();
+                Alert.alert("完了", "キーワードを削除しました");
+              },
+              style: "destructive",
+            },
+          ]
+        );
+      } else {
+        // Standard confirmation dialog
+        Alert.alert("削除の確認", `"${word}" を削除してもよろしいですか？`, [
+          { text: "キャンセル", style: "cancel" },
+          {
+            text: "削除",
+            onPress: async () => {
+              await deleteSearchWord(id);
+              await loadSearchWords();
+              Alert.alert("完了", "キーワードを削除しました");
+            },
+            style: "destructive",
+          },
+        ]);
+      }
+    } catch (error) {
+      console.error("Error checking related IDs:", error);
+      Alert.alert("エラー", "キーワードの削除に失敗しました");
+    }
   };
 
   const renderSearchWord = ({ item }: { item: SearchWord }) => (
     <View style={styles.wordItem}>
       <TouchableOpacity
-        style={[styles.checkbox, !useSearchWords ? styles.checkboxDisabled : null]}
-        onPress={() => useSearchWords && handleToggleWord(item.id, item.isActive)}
+        style={[
+          styles.checkbox,
+          !useSearchWords ? styles.checkboxDisabled : null,
+        ]}
+        onPress={() =>
+          useSearchWords && handleToggleWord(item.id, item.isActive)
+        }
         disabled={!useSearchWords}
       >
         <View
@@ -96,19 +162,31 @@ export default function SettingsScreen() {
           ]}
         >
           {item.isActive ? (
-            <IconSymbol name="checkmark" size={16} color={useSearchWords ? "#FFFFFF" : "#C7C7CC"} />
+            <IconSymbol
+              name="checkmark"
+              size={16}
+              color={useSearchWords ? "#FFFFFF" : "#C7C7CC"}
+            />
           ) : null}
         </View>
       </TouchableOpacity>
-      <Text
-        style={[
-          styles.wordText,
-          !item.isActive ? styles.wordTextInactive : null,
-          !useSearchWords ? styles.wordTextDisabled : null,
-        ]}
-      >
-        {item.word}
-      </Text>
+      <View style={styles.wordContent}>
+        <View
+          style={[
+            styles.colorIndicator,
+            { backgroundColor: item.color || "#007AFF" },
+          ]}
+        />
+        <Text
+          style={[
+            styles.wordText,
+            !item.isActive ? styles.wordTextInactive : null,
+            !useSearchWords ? styles.wordTextDisabled : null,
+          ]}
+        >
+          {item.word}
+        </Text>
+      </View>
       <TouchableOpacity
         style={styles.deleteButton}
         onPress={() => handleDeleteWord(item.id, item.word)}
@@ -152,10 +230,10 @@ export default function SettingsScreen() {
             <Text style={styles.sectionTitle}>検索設定</Text>
 
             <View style={styles.card}>
-              <Text style={styles.label}>検索ワード追加</Text>
+              <Text style={styles.label}>キーワード追加</Text>
               <Text style={styles.description}>
-                ID検索時に追加される検索ワードを設定します。
-                複数の検索ワードを登録し、必要なものを選択できます。
+                ID検索時に追加されるキーワードを設定します。
+                複数のキーワードを登録し、必要なものを選択できます。
               </Text>
 
               <View style={styles.addWordContainer}>
@@ -163,7 +241,7 @@ export default function SettingsScreen() {
                   style={styles.input}
                   value={newWord}
                   onChangeText={setNewWord}
-                  placeholder="新しい検索ワード"
+                  placeholder="新しいキーワード"
                   placeholderTextColor="#C7C7CC"
                   onSubmitEditing={handleAddWord}
                 />
@@ -174,11 +252,28 @@ export default function SettingsScreen() {
                   <IconSymbol name="plus" size={20} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
+
+              <View style={styles.colorSection}>
+                <Text style={styles.colorLabel}>キーワードの色</Text>
+                <View style={styles.colorPicker}>
+                  {SEARCH_WORD_COLORS.map((color) => (
+                    <TouchableOpacity
+                      key={color}
+                      style={[
+                        styles.colorOption,
+                        { backgroundColor: color },
+                        newWordColor === color && styles.selectedColor,
+                      ]}
+                      onPress={() => setNewWordColor(color)}
+                    />
+                  ))}
+                </View>
+              </View>
             </View>
 
             <View style={styles.card}>
               <View style={styles.searchWordHeader}>
-                <Text style={styles.label}>検索ワードを使う</Text>
+                <Text style={styles.label}>選択したキーワードを必ず使用</Text>
                 <TouchableOpacity
                   style={styles.toggle}
                   onPress={handleToggleUseSearchWords}
@@ -198,10 +293,10 @@ export default function SettingsScreen() {
                   </View>
                 </TouchableOpacity>
               </View>
-              <Text style={styles.label}>登録済み検索ワード</Text>
+              <Text style={styles.label}>キーワード一覧</Text>
               {searchWords.length === 0 ? (
                 <Text style={styles.emptyText}>
-                  検索ワードが登録されていません
+                  キーワードが登録されていません
                 </Text>
               ) : (
                 <FlatList
@@ -213,7 +308,7 @@ export default function SettingsScreen() {
               )}
             </View>
 
-            <View style={styles.card}>
+            <View style={[styles.card, styles.previewCard]}>
               <View style={styles.previewContainer}>
                 <Text style={styles.previewLabel}>検索例:</Text>
                 <Text style={styles.previewText}>{getPreviewText()}</Text>
@@ -410,5 +505,55 @@ const styles = StyleSheet.create({
   },
   wordTextDisabled: {
     color: "#C7C7CC",
+  },
+  colorSection: {
+    marginTop: 16,
+  },
+  colorLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#000000",
+    marginBottom: 12,
+    letterSpacing: 0.2,
+  },
+  colorPicker: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginBottom: 16,
+  },
+  colorOption: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  selectedColor: {
+    borderColor: "#007AFF",
+    borderWidth: 3,
+  },
+  wordContent: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    marginLeft: 12,
+    gap: 12,
+  },
+  colorIndicator: {
+    width: 16,
+    height: 16,
+    borderRadius: 3,
+  },
+  wordText: {
+    flex: 1,
+    fontSize: 16,
+    color: "#000000",
+  },
+  wordTextInactive: {
+    color: "#8E8E93",
+  },
+  previewCard: {
+    marginBottom: 32,
   },
 });

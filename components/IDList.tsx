@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { FlatList, TouchableOpacity, View, Text, StyleSheet, Alert } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
-import { IDItem } from '@/utils/database';
+import { IDItem, SearchWord, getAllSearchWords } from '@/utils/database';
 import { IconSymbol } from './ui/IconSymbol';
 
 interface IDListProps {
@@ -10,10 +10,38 @@ interface IDListProps {
   onDeleteID: (id: number) => void;
   onRefresh: () => void;
   refreshing: boolean;
-  onSearch: (query: string) => void;
+  onSearch: (query: string, item?: IDItem) => void;
 }
 
 export function IDList({ ids, onSelectID, onDeleteID, onRefresh, refreshing, onSearch }: IDListProps) {
+  const [searchWords, setSearchWords] = useState<SearchWord[]>([]);
+
+  useEffect(() => {
+    loadSearchWords();
+  }, []);
+
+  useEffect(() => {
+    loadSearchWords();
+  }, [ids]); // IDが変更されたときも検索ワードを再読み込み
+
+  const loadSearchWords = async () => {
+    try {
+      const words = await getAllSearchWords();
+      setSearchWords(words);
+    } catch (error) {
+      console.error('Error loading search words:', error);
+    }
+  };
+
+  const getSelectedSearchWords = (searchWordIds?: number[]) => {
+    if (!searchWordIds || searchWordIds.length === 0) return [];
+    const selectedWords = searchWords.filter(word => searchWordIds.includes(word.id));
+    console.log('Search word IDs:', searchWordIds);
+    console.log('Available search words:', searchWords);
+    console.log('Selected search words:', selectedWords);
+    return selectedWords;
+  };
+
   const handleDelete = (id: number, title: string) => {
     Alert.alert(
       '削除の確認',
@@ -44,7 +72,19 @@ export function IDList({ ids, onSelectID, onDeleteID, onRefresh, refreshing, onS
       <TouchableOpacity style={styles.item} onPress={() => onSelectID(item)}>
         <View style={styles.itemContent}>
           <View style={styles.itemInfo}>
-            <Text style={styles.title}>{item.title}</Text>
+            <View style={styles.titleContainer}>
+              <Text style={styles.title}>{item.title}</Text>
+              {getSelectedSearchWords(item.searchWordIds).length > 0 && (
+                <View style={styles.searchWordBadges}>
+                  {getSelectedSearchWords(item.searchWordIds).map((word) => (
+                    <View key={word.id} style={styles.searchWordItem}>
+                      <View style={[styles.colorIndicator, { backgroundColor: word.color }]} />
+                      <Text style={styles.searchWordText}>{word.word}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
             {item.notes && (
               <Text style={styles.notes} numberOfLines={2}>
                 {item.notes}
@@ -53,7 +93,7 @@ export function IDList({ ids, onSelectID, onDeleteID, onRefresh, refreshing, onS
           </View>
           <TouchableOpacity
             style={styles.searchButton}
-            onPress={() => onSearch(item.title)}
+            onPress={() => onSearch(item.title, item)}
             hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
           >
             <IconSymbol name="magnifyingglass" size={20} color="#007AFF" />
@@ -101,12 +141,40 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 12,
   },
+  titleContainer: {
+    flexDirection: 'column',
+    marginBottom: 4,
+    gap: 6,
+  },
   title: {
     fontSize: 17,
     fontWeight: '600',
     color: '#000000',
     letterSpacing: 0.2,
-    marginBottom: 4,
+  },
+  searchWordBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  searchWordItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#F2F2F7',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  colorIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 2,
+  },
+  searchWordText: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#666666',
   },
   notes: {
     fontSize: 14,

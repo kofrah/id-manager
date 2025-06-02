@@ -5,6 +5,7 @@ export interface IDItem {
   id: number;
   title: string;
   notes?: string;
+  searchWordIds?: number[];
   createdAt: string;
   updatedAt: string;
 }
@@ -12,6 +13,7 @@ export interface IDItem {
 export interface SearchWord {
   id: number;
   word: string;
+  color: string;
   isActive: boolean;
   createdAt: string;
 }
@@ -42,13 +44,68 @@ const ensureDatabase = () => {
 export const initDatabase = async () => {
   const database = ensureDatabase();
   
-  // Create search_words table
+  // Check if search_words table exists and has color column
+  let needsSearchWordsTableCreation = false;
+  try {
+    const searchWordsTableInfo = await database.getAllAsync('PRAGMA table_info(search_words)');
+    const hasColorColumn = searchWordsTableInfo.some((col: any) => col.name === 'color');
+    
+    if (searchWordsTableInfo.length === 0) {
+      // Table doesn't exist
+      needsSearchWordsTableCreation = true;
+    } else if (!hasColorColumn) {
+      // Table exists but doesn't have color column - need migration
+      console.log('Migrating search_words table to add color column');
+      
+      // Create new search_words table with color column
+      await database.execAsync(`
+        CREATE TABLE search_words_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          word TEXT NOT NULL,
+          color TEXT NOT NULL DEFAULT '#007AFF',
+          isActive INTEGER NOT NULL DEFAULT 1,
+          createdAt TEXT NOT NULL
+        );
+      `);
+      
+      // Copy existing data with default color
+      await database.execAsync(`
+        INSERT INTO search_words_new (id, word, color, isActive, createdAt)
+        SELECT id, word, '#007AFF', isActive, createdAt FROM search_words;
+      `);
+      
+      // Drop old table and rename new table
+      await database.execAsync('DROP TABLE search_words;');
+      await database.execAsync('ALTER TABLE search_words_new RENAME TO search_words;');
+      
+      console.log('Search words table migration completed successfully');
+    }
+  } catch (error) {
+    console.error('Error checking search_words table:', error);
+    needsSearchWordsTableCreation = true;
+  }
+
+  if (needsSearchWordsTableCreation) {
+    // Create search_words table
+    await database.execAsync(`
+      CREATE TABLE IF NOT EXISTS search_words (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        word TEXT NOT NULL,
+        color TEXT NOT NULL DEFAULT '#007AFF',
+        isActive INTEGER NOT NULL DEFAULT 1,
+        createdAt TEXT NOT NULL
+      );
+    `);
+  }
+
+  // Create id_search_words junction table
   await database.execAsync(`
-    CREATE TABLE IF NOT EXISTS search_words (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      word TEXT NOT NULL,
-      isActive INTEGER NOT NULL DEFAULT 1,
-      createdAt TEXT NOT NULL
+    CREATE TABLE IF NOT EXISTS id_search_words (
+      id_item_id INTEGER NOT NULL,
+      search_word_id INTEGER NOT NULL,
+      PRIMARY KEY (id_item_id, search_word_id),
+      FOREIGN KEY (id_item_id) REFERENCES ids(id) ON DELETE CASCADE,
+      FOREIGN KEY (search_word_id) REFERENCES search_words(id) ON DELETE CASCADE
     );
   `);
   
@@ -70,7 +127,7 @@ export const initDatabase = async () => {
   const count = await database.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM search_words');
   if (count && count.count === 0) {
     const now = new Date().toISOString();
-    await database.runAsync('INSERT INTO search_words (word, isActive, createdAt) VALUES (?, ?, ?)', ['ID', 1, now]);
+    await database.runAsync('INSERT INTO search_words (word, color, isActive, createdAt) VALUES (?, ?, ?, ?)', ['ID', '#007AFF', 1, now]);
   }
 
   // First create the table if it doesn't exist
@@ -84,14 +141,16 @@ export const initDatabase = async () => {
     );
   `);
 
-  // Check if the username or password column exists and migrate if necessary
+  // Check if migration is needed
   try {
     const tableInfo = await database.getAllAsync('PRAGMA table_info(ids)');
     const hasUsernameColumn = tableInfo.some((col: any) => col.name === 'username');
     const hasPasswordColumn = tableInfo.some((col: any) => col.name === 'password');
+    const hasSearchWordColumn = tableInfo.some((col: any) => col.name === 'searchWord');
+    const hasSearchWordColorColumn = tableInfo.some((col: any) => col.name === 'searchWordColor');
     
-    if (hasUsernameColumn || hasPasswordColumn) {
-      // Create new table without username and password columns
+    if (hasUsernameColumn || hasPasswordColumn || hasSearchWordColumn || hasSearchWordColorColumn) {
+      // Create new table with updated schema
       await database.execAsync(`
         CREATE TABLE ids_new (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -102,7 +161,7 @@ export const initDatabase = async () => {
         );
       `);
       
-      // Copy data from old table to new table (excluding username and password)
+      // Copy data from old table to new table (excluding removed columns)
       await database.execAsync(`
         INSERT INTO ids_new (id, title, notes, createdAt, updatedAt)
         SELECT id, title, notes, createdAt, updatedAt FROM ids;
@@ -116,6 +175,8 @@ export const initDatabase = async () => {
     console.log('Migration check completed or not needed');
   }
   
+  // Additional migration check is now handled in the main table creation logic above
+
   // Migrate from old settings table to new search_words table if needed
   try {
     const settingsExists = await database.getFirstAsync('SELECT name FROM sqlite_master WHERE type="table" AND name="settings"');
@@ -126,7 +187,7 @@ export const initDatabase = async () => {
         const exists = await database.getFirstAsync('SELECT * FROM search_words WHERE word = ?', [oldPrefix.value]);
         if (!exists) {
           const now = new Date().toISOString();
-          await database.runAsync('INSERT INTO search_words (word, isActive, createdAt) VALUES (?, ?, ?)', [oldPrefix.value, 1, now]);
+          await database.runAsync('INSERT INTO search_words (word, color, isActive, createdAt) VALUES (?, ?, ?, ?)', [oldPrefix.value, '#007AFF', 1, now]);
         }
       }
       // Drop the old settings table
@@ -139,32 +200,87 @@ export const initDatabase = async () => {
 
 export const getAllIDs = async (): Promise<IDItem[]> => {
   const database = ensureDatabase();
-  const result = await database.getAllAsync<IDItem>('SELECT * FROM ids ORDER BY updatedAt DESC');
-  return result;
+  const result = await database.getAllAsync<Omit<IDItem, 'searchWordIds'>>('SELECT * FROM ids ORDER BY updatedAt DESC');
+  
+  // Get search word IDs for each item
+  const itemsWithSearchWords = await Promise.all(
+    result.map(async (item) => {
+      const searchWordIds = await database.getAllAsync<{ search_word_id: number }>(
+        'SELECT search_word_id FROM id_search_words WHERE id_item_id = ?',
+        [item.id]
+      );
+      const finalSearchWordIds = searchWordIds.map(row => row.search_word_id);
+      console.log(`ID ${item.id} (${item.title}) has search word IDs:`, finalSearchWordIds);
+      return {
+        ...item,
+        searchWordIds: finalSearchWordIds
+      };
+    })
+  );
+  
+  return itemsWithSearchWords;
 };
 
 export const getIDById = async (id: number): Promise<IDItem | null> => {
   const database = ensureDatabase();
-  const result = await database.getFirstAsync<IDItem>('SELECT * FROM ids WHERE id = ?', [id]);
-  return result;
+  const result = await database.getFirstAsync<Omit<IDItem, 'searchWordIds'>>('SELECT * FROM ids WHERE id = ?', [id]);
+  if (!result) return null;
+  
+  // Get search word IDs for this item
+  const searchWordIds = await database.getAllAsync<{ search_word_id: number }>(
+    'SELECT search_word_id FROM id_search_words WHERE id_item_id = ?',
+    [id]
+  );
+  
+  return {
+    ...result,
+    searchWordIds: searchWordIds.map(row => row.search_word_id)
+  };
 };
 
-export const createID = async (title: string, notes?: string): Promise<void> => {
+export const createID = async (title: string, notes?: string, searchWordIds?: number[]): Promise<void> => {
   const database = ensureDatabase();
   const now = new Date().toISOString();
-  await database.runAsync(
+  
+  const result = await database.runAsync(
     'INSERT INTO ids (title, notes, createdAt, updatedAt) VALUES (?, ?, ?, ?)',
     [title, notes || '', now, now]
   );
+  
+  const insertedId = result.lastInsertRowId;
+  
+  // Insert search word relationships
+  if (searchWordIds && searchWordIds.length > 0) {
+    for (const wordId of searchWordIds) {
+      await database.runAsync(
+        'INSERT INTO id_search_words (id_item_id, search_word_id) VALUES (?, ?)',
+        [insertedId, wordId]
+      );
+    }
+  }
 };
 
-export const updateID = async (id: number, title: string, notes?: string): Promise<void> => {
+export const updateID = async (id: number, title: string, notes?: string, searchWordIds?: number[]): Promise<void> => {
   const database = ensureDatabase();
   const now = new Date().toISOString();
+  
   await database.runAsync(
     'UPDATE ids SET title = ?, notes = ?, updatedAt = ? WHERE id = ?',
     [title, notes || '', now, id]
   );
+  
+  // Remove existing search word relationships
+  await database.runAsync('DELETE FROM id_search_words WHERE id_item_id = ?', [id]);
+  
+  // Insert new search word relationships
+  if (searchWordIds && searchWordIds.length > 0) {
+    for (const wordId of searchWordIds) {
+      await database.runAsync(
+        'INSERT INTO id_search_words (id_item_id, search_word_id) VALUES (?, ?)',
+        [id, wordId]
+      );
+    }
+  }
 };
 
 export const deleteID = async (id: number): Promise<void> => {
@@ -201,10 +317,19 @@ export const getActiveSearchWords = async (): Promise<SearchWord[]> => {
   }));
 };
 
-export const createSearchWord = async (word: string): Promise<void> => {
+export const createSearchWord = async (word: string, color: string = '#007AFF'): Promise<void> => {
   const database = ensureDatabase();
+  
+  // Debug: Check table structure before insertion
+  try {
+    const tableInfo = await database.getAllAsync('PRAGMA table_info(search_words)');
+    console.log('search_words table structure:', tableInfo);
+  } catch (error) {
+    console.error('Error checking table structure:', error);
+  }
+  
   const now = new Date().toISOString();
-  await database.runAsync('INSERT INTO search_words (word, isActive, createdAt) VALUES (?, ?, ?)', [word, 1, now]);
+  await database.runAsync('INSERT INTO search_words (word, color, isActive, createdAt) VALUES (?, ?, ?, ?)', [word, color, 1, now]);
 };
 
 export const updateSearchWordStatus = async (id: number, isActive: boolean): Promise<void> => {
@@ -212,8 +337,38 @@ export const updateSearchWordStatus = async (id: number, isActive: boolean): Pro
   await database.runAsync('UPDATE search_words SET isActive = ? WHERE id = ?', [isActive ? 1 : 0, id]);
 };
 
+export const getIDsUsingSearchWord = async (searchWordId: number): Promise<IDItem[]> => {
+  const database = ensureDatabase();
+  const result = await database.getAllAsync<Omit<IDItem, 'searchWordIds'>>(
+    `SELECT DISTINCT i.* FROM ids i 
+     INNER JOIN id_search_words isw ON i.id = isw.id_item_id 
+     WHERE isw.search_word_id = ? 
+     ORDER BY i.updatedAt DESC`,
+    [searchWordId]
+  );
+  
+  // Get search word IDs for each item
+  const itemsWithSearchWords = await Promise.all(
+    result.map(async (item) => {
+      const searchWordIds = await database.getAllAsync<{ search_word_id: number }>(
+        'SELECT search_word_id FROM id_search_words WHERE id_item_id = ?',
+        [item.id]
+      );
+      return {
+        ...item,
+        searchWordIds: searchWordIds.map(row => row.search_word_id)
+      };
+    })
+  );
+  
+  return itemsWithSearchWords;
+};
+
 export const deleteSearchWord = async (id: number): Promise<void> => {
   const database = ensureDatabase();
+  // Delete the search word relationships first (CASCADE should handle this, but being explicit)
+  await database.runAsync('DELETE FROM id_search_words WHERE search_word_id = ?', [id]);
+  // Delete the search word itself
   await database.runAsync('DELETE FROM search_words WHERE id = ?', [id]);
 };
 
@@ -239,4 +394,32 @@ export const getGlobalSettings = async (): Promise<GlobalSettings> => {
 export const setGlobalSetting = async (key: keyof GlobalSettings, value: boolean): Promise<void> => {
   const database = ensureDatabase();
   await database.runAsync('UPDATE global_settings SET value = ? WHERE key = ?', [value.toString(), key]);
+};
+
+export const buildSearchQuery = async (baseQuery: string, itemSearchWordIds?: number[]): Promise<string> => {
+  const settings = await getGlobalSettings();
+  let searchWords: string[] = [];
+  
+  // グローバル設定がオンの場合、アクティブなキーワードを追加
+  if (settings.useSearchWords) {
+    const activeWords = await getActiveSearchWords();
+    searchWords.push(...activeWords.map(w => w.word));
+  }
+  
+  // アイテム固有のキーワードがある場合は必ず追加（重複除去）
+  if (itemSearchWordIds && itemSearchWordIds.length > 0) {
+    const itemWords = await getAllSearchWords();
+    const itemSpecificWords = itemWords
+      .filter(w => itemSearchWordIds.includes(w.id))
+      .map(w => w.word);
+    
+    // 重複を除去して追加
+    itemSpecificWords.forEach(word => {
+      if (!searchWords.includes(word)) {
+        searchWords.push(word);
+      }
+    });
+  }
+  
+  return searchWords.length > 0 ? `${searchWords.join(' ')} ${baseQuery}` : baseQuery;
 };

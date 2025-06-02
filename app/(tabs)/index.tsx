@@ -11,6 +11,7 @@ import {
   searchIDs,
   updateID,
   getGlobalSettings,
+  buildSearchQuery,
 } from "@/utils/database";
 import { Linking } from "react-native";
 import React, { useEffect, useState } from "react";
@@ -68,14 +69,20 @@ export default function HomeScreen() {
     setShowForm(true);
   };
 
-  const handleSave = async (title: string, notes?: string) => {
+  const handleSave = async (title: string, notes?: string, searchWordIds?: number[]) => {
     if (editingID) {
-      await updateID(editingID.id, title, notes);
+      await updateID(editingID.id, title, notes, searchWordIds);
     } else {
-      await createID(title, notes);
+      await createID(title, notes, searchWordIds);
     }
     setShowForm(false);
     await loadIDs();
+  };
+
+  const handleCancel = () => {
+    setShowForm(false);
+    // IDFormで検索ワードが追加された可能性があるため、IDリストを再読み込み
+    loadIDs();
   };
 
   const handleDelete = async (id: number) => {
@@ -86,14 +93,7 @@ export default function HomeScreen() {
   const handleWebSearch = async () => {
     if (!searchQuery.trim()) return;
     
-    const settings = await getGlobalSettings();
-    let fullSearchQuery = searchQuery;
-    
-    if (settings.useSearchWords) {
-      const activeWords = await getActiveSearchWords();
-      const prefixes = activeWords.map((w) => w.word).join(" ");
-      fullSearchQuery = prefixes ? `${prefixes} ${searchQuery}` : searchQuery;
-    }
+    const fullSearchQuery = await buildSearchQuery(searchQuery);
     
     // Use x-web-search URL scheme to let the OS decide which browser to use
     const url = `x-web-search://?${encodeURIComponent(fullSearchQuery)}`;
@@ -106,15 +106,8 @@ export default function HomeScreen() {
     }
   };
 
-  const handleItemWebSearch = async (query: string) => {
-    const settings = await getGlobalSettings();
-    let fullSearchQuery = query;
-    
-    if (settings.useSearchWords) {
-      const activeWords = await getActiveSearchWords();
-      const prefixes = activeWords.map((w) => w.word).join(" ");
-      fullSearchQuery = prefixes ? `${prefixes} ${query}` : query;
-    }
+  const handleItemWebSearch = async (query: string, item?: IDItem) => {
+    const fullSearchQuery = await buildSearchQuery(query, item?.searchWordIds);
     
     // Use x-web-search URL scheme to let the OS decide which browser to use
     const url = `x-web-search://?${encodeURIComponent(fullSearchQuery)}`;
@@ -175,7 +168,7 @@ export default function HomeScreen() {
           <IDForm
             initialData={editingID}
             onSave={handleSave}
-            onCancel={() => setShowForm(false)}
+            onCancel={handleCancel}
             onDelete={
               editingID
                 ? (id) => {
