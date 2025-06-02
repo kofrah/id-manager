@@ -1,12 +1,15 @@
 import { IDForm } from "@/components/IDForm";
 import { IDList } from "@/components/IDList";
 import { IconSymbol } from "@/components/ui/IconSymbol";
+import { FilterIcon } from "@/components/FilterIcon";
 import {
   IDItem,
   buildSearchQuery,
   createID,
   deleteID,
   getAllIDs,
+  getAllSearchWords,
+  SearchWord,
   initDatabase,
   updateID,
 } from "@/utils/database";
@@ -29,28 +32,55 @@ export default function HomeScreen() {
   const [editingID, setEditingID] = useState<IDItem | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showFilterDialog, setShowFilterDialog] = useState(false);
+  const [selectedKeywords, setSelectedKeywords] = useState<number[]>([]);
+  const [allKeywords, setAllKeywords] = useState<SearchWord[]>([]);
 
   useEffect(() => {
     initializeApp();
   }, []);
 
   useEffect(() => {
-    if (searchQuery.trim() === "") {
-      setFilteredIds(ids);
-    } else {
-      const filtered = ids.filter(
+    loadKeywords();
+  }, []);
+
+  useEffect(() => {
+    let filtered = ids;
+    
+    // テキスト検索でフィルタリング
+    if (searchQuery.trim() !== "") {
+      filtered = filtered.filter(
         (item) =>
           item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
           (item.notes &&
             item.notes.toLowerCase().includes(searchQuery.toLowerCase()))
       );
-      setFilteredIds(filtered);
     }
-  }, [ids, searchQuery]);
+    
+    // キーワードフィルターでフィルタリング
+    if (selectedKeywords.length > 0) {
+      filtered = filtered.filter((item) => {
+        if (!item.searchWordIds || item.searchWordIds.length === 0) {
+          return false;
+        }
+        // 選択されたキーワードのいずれかを含むアイテムを表示
+        return selectedKeywords.some(keywordId => 
+          item.searchWordIds!.includes(keywordId)
+        );
+      });
+    }
+    
+    setFilteredIds(filtered);
+  }, [ids, searchQuery, selectedKeywords]);
 
   const initializeApp = async () => {
     await initDatabase();
     await loadIDs();
+  };
+
+  const loadKeywords = async () => {
+    const keywords = await getAllSearchWords();
+    setAllKeywords(keywords);
   };
 
   const loadIDs = async () => {
@@ -103,7 +133,7 @@ export default function HomeScreen() {
   const handleWebSearch = async () => {
     if (!searchQuery.trim()) return;
 
-    const fullSearchQuery = await buildSearchQuery(searchQuery);
+    const fullSearchQuery = await buildSearchQuery(searchQuery, selectedKeywords);
 
     // Use x-web-search URL scheme to let the OS decide which browser to use
     const url = `x-web-search://?${encodeURIComponent(fullSearchQuery)}`;
@@ -116,6 +146,23 @@ export default function HomeScreen() {
       )}`;
       await Linking.openURL(fallbackUrl);
     }
+  };
+
+  const handleFilterPress = () => {
+    setShowFilterDialog(true);
+  };
+
+  const handleKeywordToggle = (keywordId: number) => {
+    setSelectedKeywords(prev => 
+      prev.includes(keywordId)
+        ? prev.filter(id => id !== keywordId)
+        : [...prev, keywordId]
+    );
+  };
+
+  const clearFilter = () => {
+    setSelectedKeywords([]);
+    setShowFilterDialog(false);
   };
 
   const handleAppSearch = (query: string) => {
@@ -160,8 +207,17 @@ export default function HomeScreen() {
             </TouchableOpacity>
           )}
         </View>
-        <TouchableOpacity style={styles.searchButton} onPress={handleWebSearch}>
-          <Text style={styles.searchButtonText}>検索</Text>
+        <TouchableOpacity 
+          style={[
+            styles.filterButton,
+            selectedKeywords.length > 0 ? styles.filterButtonActive : styles.filterButtonInactive
+          ]} 
+          onPress={handleFilterPress}
+        >
+          <FilterIcon 
+            size={20} 
+            color={selectedKeywords.length > 0 ? "#FFFFFF" : "#8E8E93"} 
+          />
         </TouchableOpacity>
       </View>
 
@@ -194,6 +250,55 @@ export default function HomeScreen() {
             }
           />
         </SafeAreaView>
+      </Modal>
+
+      <Modal
+        visible={showFilterDialog}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        transparent={true}
+      >
+        <TouchableOpacity 
+          style={styles.filterDialogOverlay}
+          activeOpacity={1}
+          onPress={() => setShowFilterDialog(false)}
+        >
+          <TouchableOpacity style={styles.filterDialog} activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.filterHeader}>
+              <Text style={styles.filterTitle}>フィルター</Text>
+              <TouchableOpacity onPress={() => setShowFilterDialog(false)}>
+                <IconSymbol name="xmark" size={20} color="#8E8E93" />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>キーワード</Text>
+              <TouchableOpacity style={styles.smallClearButton} onPress={clearFilter}>
+                <Text style={styles.smallClearButtonText}>クリア</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.keywordList}>
+              {allKeywords.map((keyword) => (
+                <TouchableOpacity
+                  key={keyword.id}
+                  style={[
+                    styles.keywordItem,
+                    selectedKeywords.includes(keyword.id) && styles.keywordItemSelected
+                  ]}
+                  onPress={() => handleKeywordToggle(keyword.id)}
+                >
+                  <View style={[styles.keywordColor, { backgroundColor: keyword.color }]} />
+                  <Text style={[
+                    styles.keywordText,
+                    selectedKeywords.includes(keyword.id) && styles.keywordTextSelected
+                  ]}>
+                    {keyword.word}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
 
       <TouchableOpacity style={styles.fab} onPress={handleAddNew}>
@@ -250,21 +355,105 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#000000",
   },
-  searchButton: {
-    backgroundColor: "#007AFF",
-    paddingHorizontal: 20,
+  filterButton: {
+    paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 12,
-    shadowColor: "#007AFF",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 3,
     elevation: 3,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  searchButtonText: {
-    color: "#FFFFFF",
+  filterButtonActive: {
+    backgroundColor: "#007AFF",
+    shadowColor: "#007AFF",
+  },
+  filterButtonInactive: {
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+  },
+  filterDialogOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  filterDialog: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    maxHeight: "70%",
+  },
+  filterHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  filterTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#000000",
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    gap: 16,
+  },
+  sectionTitle: {
     fontSize: 16,
     fontWeight: "600",
+    color: "#000000",
+  },
+  smallClearButton: {
+    backgroundColor: "#FF3B30",
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  smallClearButtonText: {
+    fontSize: 14,
+    color: "#FFFFFF",
+    fontWeight: "600",
+  },
+  keywordList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 20,
+  },
+  keywordItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F2F2F7",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    gap: 6,
+  },
+  keywordItemSelected: {
+    backgroundColor: "#007AFF",
+  },
+  keywordColor: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  keywordText: {
+    fontSize: 14,
+    color: "#000000",
+  },
+  keywordTextSelected: {
+    color: "#FFFFFF",
+  },
+  filterIcon: {
+    fontSize: 18,
+    fontWeight: "bold",
   },
   modalContainer: {
     flex: 1,
