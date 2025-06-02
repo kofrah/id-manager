@@ -99,7 +99,7 @@ export function IDList({ ids, onSelectID, onDeleteID, onRefresh, refreshing, onS
           </View>
           <TouchableOpacity
             style={styles.searchButton}
-            onPress={() => onSearch(item.title, item)}
+            onPress={() => onSearch(item.notes ? `${item.title} ${item.notes}` : item.title, item)}
             hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
           >
             <IconSymbol name="magnifyingglass" size={20} color="#007AFF" />

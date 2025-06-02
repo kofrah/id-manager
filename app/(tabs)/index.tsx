@@ -3,19 +3,16 @@ import { IDList } from "@/components/IDList";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import {
   IDItem,
+  buildSearchQuery,
   createID,
   deleteID,
-  getActiveSearchWords,
   getAllIDs,
   initDatabase,
-  searchIDs,
   updateID,
-  getGlobalSettings,
-  buildSearchQuery,
 } from "@/utils/database";
-import { Linking } from "react-native";
 import React, { useEffect, useState } from "react";
 import {
+  Linking,
   Modal,
   StyleSheet,
   Text,
@@ -38,8 +35,18 @@ export default function HomeScreen() {
   }, []);
 
   useEffect(() => {
-    setFilteredIds(ids);
-  }, [ids]);
+    if (searchQuery.trim() === "") {
+      setFilteredIds(ids);
+    } else {
+      const filtered = ids.filter(
+        (item) =>
+          item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (item.notes &&
+            item.notes.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
+      setFilteredIds(filtered);
+    }
+  }, [ids, searchQuery]);
 
   const initializeApp = async () => {
     await initDatabase();
@@ -58,7 +65,6 @@ export default function HomeScreen() {
     setRefreshing(false);
   };
 
-
   const handleAddNew = () => {
     setEditingID(null);
     setShowForm(true);
@@ -69,7 +75,11 @@ export default function HomeScreen() {
     setShowForm(true);
   };
 
-  const handleSave = async (title: string, notes?: string, searchWordIds?: number[]) => {
+  const handleSave = async (
+    title: string,
+    notes?: string,
+    searchWordIds?: number[]
+  ) => {
     if (editingID) {
       await updateID(editingID.id, title, notes, searchWordIds);
     } else {
@@ -92,30 +102,38 @@ export default function HomeScreen() {
 
   const handleWebSearch = async () => {
     if (!searchQuery.trim()) return;
-    
+
     const fullSearchQuery = await buildSearchQuery(searchQuery);
-    
+
     // Use x-web-search URL scheme to let the OS decide which browser to use
     const url = `x-web-search://?${encodeURIComponent(fullSearchQuery)}`;
     try {
       await Linking.openURL(url);
     } catch (error) {
       // Fallback to Google search if x-web-search is not supported
-      const fallbackUrl = `https://www.google.com/search?q=${encodeURIComponent(fullSearchQuery)}`;
+      const fallbackUrl = `https://www.google.com/search?q=${encodeURIComponent(
+        fullSearchQuery
+      )}`;
       await Linking.openURL(fallbackUrl);
     }
   };
 
+  const handleAppSearch = (query: string) => {
+    setSearchQuery(query);
+  };
+
   const handleItemWebSearch = async (query: string, item?: IDItem) => {
     const fullSearchQuery = await buildSearchQuery(query, item?.searchWordIds);
-    
+
     // Use x-web-search URL scheme to let the OS decide which browser to use
     const url = `x-web-search://?${encodeURIComponent(fullSearchQuery)}`;
     try {
       await Linking.openURL(url);
     } catch (error) {
       // Fallback to Google search if x-web-search is not supported
-      const fallbackUrl = `https://www.google.com/search?q=${encodeURIComponent(fullSearchQuery)}`;
+      const fallbackUrl = `https://www.google.com/search?q=${encodeURIComponent(
+        fullSearchQuery
+      )}`;
       await Linking.openURL(fallbackUrl);
     }
   };
@@ -131,7 +149,7 @@ export default function HomeScreen() {
           <IconSymbol name="magnifyingglass" size={20} color="#8E8E93" />
           <TextInput
             style={styles.searchInput}
-            placeholder="IDを検索"
+            placeholder="ID・メモを検索"
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholderTextColor="#C7C7CC"
@@ -142,10 +160,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
           )}
         </View>
-        <TouchableOpacity
-          style={styles.searchButton}
-          onPress={handleWebSearch}
-        >
+        <TouchableOpacity style={styles.searchButton} onPress={handleWebSearch}>
           <Text style={styles.searchButtonText}>検索</Text>
         </TouchableOpacity>
       </View>

@@ -310,7 +310,7 @@ export default function SettingsScreen() {
 
             <View style={[styles.card, styles.previewCard]}>
               <View style={styles.previewContainer}>
-                <Text style={styles.previewLabel}>検索例:</Text>
+                <Text style={styles.previewLabel}>検索文字列:</Text>
                 <Text style={styles.previewText}>{getPreviewText()}</Text>
               </View>
             </View>
