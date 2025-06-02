@@ -22,8 +22,17 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { GestureHandlerRootView, PanGestureHandler } from "react-native-gesture-handler";
+import Animated, {
+  useAnimatedGestureHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  runOnJS,
+} from "react-native-reanimated";
 
 export default function HomeScreen() {
   const [ids, setIds] = useState<IDItem[]>([]);
@@ -35,6 +44,10 @@ export default function HomeScreen() {
   const [showFilterDialog, setShowFilterDialog] = useState(false);
   const [selectedKeywords, setSelectedKeywords] = useState<number[]>([]);
   const [allKeywords, setAllKeywords] = useState<SearchWord[]>([]);
+
+  // Swipeable modal animation values
+  const translateY = useSharedValue(0);
+  const { height } = Dimensions.get("window");
 
   useEffect(() => {
     initializeApp();
@@ -124,6 +137,48 @@ export default function HomeScreen() {
     // IDFormで検索ワードが追加された可能性があるため、IDリストを再読み込み
     loadIDs();
   };
+
+  // Gesture handler for swipe to dismiss
+  const gestureHandler = useAnimatedGestureHandler({
+    onStart: () => {
+      translateY.value = 0;
+    },
+    onActive: (event) => {
+      // Only allow downward swipes
+      if (event.translationY > 0) {
+        translateY.value = event.translationY;
+      }
+    },
+    onEnd: (event) => {
+      if (event.translationY > height * 0.2 || event.velocityY > 800) {
+        // If swiped more than 20% of screen height or with high velocity, close the modal
+        translateY.value = withSpring(height, {
+          damping: 20,
+          stiffness: 90,
+        });
+        runOnJS(handleCancel)();
+      } else {
+        // Otherwise, snap back to original position
+        translateY.value = withSpring(0, {
+          damping: 20,
+          stiffness: 200,
+        });
+      }
+    },
+  });
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateY: translateY.value }],
+    };
+  });
+
+  // Reset animation when modal opens
+  useEffect(() => {
+    if (showForm) {
+      translateY.value = 0;
+    }
+  }, [showForm]);
 
   const handleDelete = async (id: number) => {
     await deleteID(id);
@@ -234,22 +289,32 @@ export default function HomeScreen() {
         visible={showForm}
         animationType="slide"
         presentationStyle="pageSheet"
+        onRequestClose={handleCancel}
       >
-        <SafeAreaView style={styles.modalContainer}>
-          <IDForm
-            initialData={editingID}
-            onSave={handleSave}
-            onCancel={handleCancel}
-            onDelete={
-              editingID
-                ? (id) => {
-                    handleDelete(id);
-                    setShowForm(false);
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <PanGestureHandler onGestureEvent={gestureHandler}>
+            <Animated.View style={[{ flex: 1 }, animatedStyle]}>
+              <SafeAreaView style={styles.modalContainer}>
+                <View style={styles.dragIndicatorContainer}>
+                  <View style={styles.dragIndicator} />
+                </View>
+                <IDForm
+                  initialData={editingID}
+                  onSave={handleSave}
+                  onCancel={handleCancel}
+                  onDelete={
+                    editingID
+                      ? (id) => {
+                          handleDelete(id);
+                          setShowForm(false);
+                        }
+                      : undefined
                   }
-                : undefined
-            }
-          />
-        </SafeAreaView>
+                />
+              </SafeAreaView>
+            </Animated.View>
+          </PanGestureHandler>
+        </GestureHandlerRootView>
       </Modal>
 
       <Modal
@@ -458,6 +523,17 @@ const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     backgroundColor: "#F2F2F7",
+  },
+  dragIndicatorContainer: {
+    alignItems: "center",
+    paddingTop: 10,
+    paddingBottom: 5,
+  },
+  dragIndicator: {
+    width: 40,
+    height: 5,
+    backgroundColor: "#C7C7CC",
+    borderRadius: 3,
   },
   fab: {
     position: "absolute",
