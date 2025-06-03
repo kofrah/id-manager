@@ -26,6 +26,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { GestureHandlerRootView, PanGestureHandler } from "react-native-gesture-handler";
+import { useDarkMode } from "@/contexts/DarkModeContext";
+import { Colors } from "@/constants/Colors";
 import Animated, {
   useAnimatedGestureHandler,
   useAnimatedStyle,
@@ -35,6 +37,8 @@ import Animated, {
 } from "react-native-reanimated";
 
 export default function HomeScreen() {
+  const { colorScheme } = useDarkMode();
+  const colors = Colors[colorScheme];
   const [ids, setIds] = useState<IDItem[]>([]);
   const [filteredIds, setFilteredIds] = useState<IDItem[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -240,6 +244,213 @@ export default function HomeScreen() {
     }
   };
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colorScheme === "dark" ? "#000000" : "#F2F2F7",
+    },
+    header: {
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      backgroundColor: colorScheme === "dark" ? "#1C1C1E" : "#FFFFFF",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 3,
+      elevation: 3,
+    },
+    headerTitle: {
+      fontSize: 28,
+      fontWeight: "700",
+      color: colors.text,
+    },
+    searchWrapper: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      gap: 8,
+    },
+    searchContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colorScheme === "dark" ? "#1C1C1E" : "#FFFFFF",
+      flex: 1,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 12,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    searchInput: {
+      flex: 1,
+      marginLeft: 10,
+      fontSize: 16,
+      color: colors.text,
+    },
+    filterButton: {
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 12,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    filterButtonInactive: {
+      backgroundColor: colorScheme === "dark" ? "#1C1C1E" : "#FFFFFF",
+    },
+    filterButtonActive: {
+      backgroundColor: "#007AFF",
+    },
+    modalContainer: {
+      flex: 1,
+      backgroundColor: colorScheme === "dark" ? "#000000" : "#F2F2F7",
+    },
+    dragIndicatorContainer: {
+      alignItems: "center",
+      paddingTop: 8,
+      paddingBottom: 4,
+    },
+    dragIndicator: {
+      width: 36,
+      height: 5,
+      backgroundColor: colorScheme === "dark" ? "#48484A" : "#C7C7CC",
+      borderRadius: 3,
+    },
+    filterDialogOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0, 0, 0, 0.4)",
+      justifyContent: "flex-end",
+    },
+    filterDialog: {
+      backgroundColor: colorScheme === "dark" ? "#1C1C1E" : "#FFFFFF",
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      paddingTop: 8,
+      paddingBottom: 34,
+      maxHeight: "70%",
+    },
+    filterHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colorScheme === "dark" ? "#2C2C2E" : "#F2F2F7",
+    },
+    filterTitle: {
+      fontSize: 18,
+      fontWeight: "600",
+      color: colors.text,
+    },
+    sectionHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingHorizontal: 20,
+      paddingTop: 16,
+      paddingBottom: 8,
+    },
+    sectionTitle: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: colors.text,
+    },
+    smallClearButton: {
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+    },
+    smallClearButtonText: {
+      fontSize: 14,
+      color: "#007AFF",
+    },
+    keywordList: {
+      paddingHorizontal: 20,
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 10,
+      paddingTop: 12,
+    },
+    keywordItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      backgroundColor: colorScheme === "dark" ? "#2C2C2E" : "#F2F2F7",
+      borderRadius: 20,
+    },
+    keywordItemSelected: {
+      backgroundColor: "#007AFF",
+    },
+    keywordText: {
+      fontSize: 14,
+      color: colors.text,
+    },
+    keywordTextSelected: {
+      color: "#FFFFFF",
+    },
+    keywordColor: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      marginRight: 8,
+    },
+    keywordCheckbox: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      borderWidth: 2,
+      borderColor: colorScheme === "dark" ? "#48484A" : "#C7C7CC",
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 12,
+    },
+    keywordCheckboxChecked: {
+      backgroundColor: "#007AFF",
+      borderColor: "#007AFF",
+    },
+    keywordLabel: {
+      flex: 1,
+      fontSize: 16,
+      color: colors.text,
+    },
+    clearButton: {
+      marginHorizontal: 20,
+      marginTop: 16,
+      paddingVertical: 12,
+      backgroundColor: colorScheme === "dark" ? "#48484A" : "#E5E5EA",
+      borderRadius: 10,
+      alignItems: "center",
+    },
+    clearButtonText: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: colors.text,
+    },
+    fab: {
+      position: "absolute",
+      right: 30,
+      bottom: 120,
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: "#007AFF",
+      justifyContent: "center",
+      alignItems: "center",
+      shadowColor: "#007AFF",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 8,
+    },
+  });
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -320,7 +531,6 @@ export default function HomeScreen() {
       <Modal
         visible={showFilterDialog}
         animationType="slide"
-        presentationStyle="pageSheet"
         transparent={true}
       >
         <TouchableOpacity 
@@ -372,183 +582,3 @@ export default function HomeScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F2F2F7",
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#000000",
-  },
-  searchWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    gap: 8,
-  },
-  searchContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 10,
-    fontSize: 16,
-    color: "#000000",
-  },
-  filterButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  filterButtonActive: {
-    backgroundColor: "#007AFF",
-    shadowColor: "#007AFF",
-  },
-  filterButtonInactive: {
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-  },
-  filterDialogOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "flex-end",
-  },
-  filterDialog: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    maxHeight: "70%",
-  },
-  filterHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  filterTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#000000",
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-    gap: 16,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#000000",
-  },
-  smallClearButton: {
-    backgroundColor: "#FF3B30",
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 14,
-  },
-  smallClearButtonText: {
-    fontSize: 14,
-    color: "#FFFFFF",
-    fontWeight: "600",
-  },
-  keywordList: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 20,
-  },
-  keywordItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F2F2F7",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    gap: 6,
-  },
-  keywordItemSelected: {
-    backgroundColor: "#007AFF",
-  },
-  keywordColor: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  keywordText: {
-    fontSize: 14,
-    color: "#000000",
-  },
-  keywordTextSelected: {
-    color: "#FFFFFF",
-  },
-  filterIcon: {
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: "#F2F2F7",
-  },
-  dragIndicatorContainer: {
-    alignItems: "center",
-    paddingTop: 10,
-    paddingBottom: 5,
-  },
-  dragIndicator: {
-    width: 40,
-    height: 5,
-    backgroundColor: "#C7C7CC",
-    borderRadius: 3,
-  },
-  fab: {
-    position: "absolute",
-    right: 30,
-    bottom: 120,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#007AFF",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#007AFF",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-});

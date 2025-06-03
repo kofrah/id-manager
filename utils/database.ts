@@ -21,6 +21,7 @@ export interface SearchWord {
 
 export interface GlobalSettings {
   useSearchWords: boolean;
+  darkMode?: "system" | "light" | "dark";
 }
 
 let db: SQLite.SQLiteDatabase | null = null;
@@ -122,6 +123,11 @@ export const initDatabase = async () => {
   const useSearchWordsExists = await database.getFirstAsync('SELECT * FROM global_settings WHERE key = ?', ['useSearchWords']);
   if (!useSearchWordsExists) {
     await database.runAsync('INSERT INTO global_settings (key, value) VALUES (?, ?)', ['useSearchWords', 'true']);
+  }
+  
+  const darkModeExists = await database.getFirstAsync('SELECT * FROM global_settings WHERE key = ?', ['darkMode']);
+  if (!darkModeExists) {
+    await database.runAsync('INSERT INTO global_settings (key, value) VALUES (?, ?)', ['darkMode', 'system']);
   }
 
   // Initialize default search word if table is empty
@@ -401,13 +407,15 @@ export const setSearchPrefix = async (_prefix: string): Promise<void> => {
 export const getGlobalSettings = async (): Promise<GlobalSettings> => {
   const database = ensureDatabase();
   const useSearchWords = await database.getFirstAsync<{ value: string }>('SELECT value FROM global_settings WHERE key = ?', ['useSearchWords']);
+  const darkMode = await database.getFirstAsync<{ value: string }>('SELECT value FROM global_settings WHERE key = ?', ['darkMode']);
   
   return {
-    useSearchWords: useSearchWords?.value === 'true'
+    useSearchWords: useSearchWords?.value === 'true',
+    darkMode: (darkMode?.value as "system" | "light" | "dark") || "system"
   };
 };
 
-export const setGlobalSetting = async (key: keyof GlobalSettings, value: boolean): Promise<void> => {
+export const setGlobalSetting = async (key: keyof GlobalSettings, value: boolean | string): Promise<void> => {
   const database = ensureDatabase();
   await database.runAsync('UPDATE global_settings SET value = ? WHERE key = ?', [value.toString(), key]);
 };

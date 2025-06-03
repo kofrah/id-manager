@@ -5,7 +5,7 @@ import {
   createSearchWord,
   getAllSearchWords,
 } from "@/utils/database";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -18,6 +18,8 @@ import {
   View,
 } from "react-native";
 import { IconSymbol } from "./ui/IconSymbol";
+import { useDarkMode } from "@/contexts/DarkModeContext";
+import { Colors } from "@/constants/Colors";
 
 interface IDFormProps {
   initialData?: IDItem | null;
@@ -45,6 +47,8 @@ export function IDForm({
   onCancel,
   onDelete,
 }: IDFormProps) {
+  const { colorScheme } = useDarkMode();
+  const colors = Colors[colorScheme];
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
   const [searchWords, setSearchWords] = useState<SearchWord[]>([]);
@@ -58,6 +62,18 @@ export function IDForm({
   const [showAddNewWord, setShowAddNewWord] = useState(false);
   const [searchPreview, setSearchPreview] = useState("");
 
+  const updateSearchPreview = useCallback(async () => {
+    if (title.trim()) {
+      const preview = await buildSearchQuery(
+        title.trim(),
+        selectedSearchWordIds
+      );
+      setSearchPreview(preview);
+    } else {
+      setSearchPreview("");
+    }
+  }, [title, selectedSearchWordIds]);
+
   useEffect(() => {
     loadSearchWords();
     if (initialData) {
@@ -69,23 +85,11 @@ export function IDForm({
 
   useEffect(() => {
     updateSearchPreview();
-  }, [title, selectedSearchWordIds]);
+  }, [updateSearchPreview]);
 
   const loadSearchWords = async () => {
     const words = await getAllSearchWords();
     setSearchWords(words);
-  };
-
-  const updateSearchPreview = async () => {
-    if (title.trim()) {
-      const preview = await buildSearchQuery(
-        title.trim(),
-        selectedSearchWordIds
-      );
-      setSearchPreview(preview);
-    } else {
-      setSearchPreview("");
-    }
   };
 
   const handleSave = () => {
@@ -145,12 +149,238 @@ export function IDForm({
     );
   };
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colorScheme === "dark" ? "#000000" : "#F2F2F7",
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollViewContent: {
+      flexGrow: 1,
+      paddingBottom: 40,
+    },
+    form: {
+      padding: 24,
+      paddingBottom: 24,
+    },
+    inputGroup: {
+      marginBottom: 24,
+    },
+    label: {
+      fontSize: 16,
+      fontWeight: "600",
+      marginBottom: 10,
+      color: colors.text,
+      letterSpacing: 0.2,
+    },
+    input: {
+      borderWidth: 0,
+      borderRadius: 12,
+      padding: 16,
+      fontSize: 16,
+      backgroundColor: colorScheme === "dark" ? "#1C1C1E" : "#FFFFFF",
+      color: colors.text,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 3,
+      elevation: 2,
+    },
+    notesInput: {
+      height: 120,
+      textAlignVertical: "top",
+      paddingTop: 16,
+    },
+    searchWordHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 10,
+    },
+    addNewButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    addNewButtonText: {
+      color: colorScheme === "dark" ? "#0A84FF" : "#007AFF",
+      fontSize: 14,
+      fontWeight: "500",
+    },
+    newWordContainer: {
+      backgroundColor: colorScheme === "dark" ? "#1C1C1E" : "#FFFFFF",
+      padding: 16,
+      borderRadius: 12,
+      marginBottom: 16,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 3,
+      elevation: 2,
+    },
+    colorPicker: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+      marginTop: 12,
+      marginBottom: 16,
+    },
+    colorOption: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      borderWidth: 2,
+      borderColor: "transparent",
+    },
+    selectedColor: {
+      borderColor: colorScheme === "dark" ? "#0A84FF" : "#007AFF",
+      borderWidth: 3,
+    },
+    newWordActions: {
+      flexDirection: "row",
+      gap: 12,
+    },
+    button: {
+      flex: 1,
+      flexDirection: "row",
+      padding: 18,
+      borderRadius: 12,
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    cancelNewWordButton: {
+      backgroundColor: colorScheme === "dark" ? "#48484A" : "#E5E5EA",
+    },
+    cancelNewWordButtonText: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: "600",
+    },
+    addNewWordButton: {
+      backgroundColor: colorScheme === "dark" ? "#0A84FF" : "#007AFF",
+    },
+    addNewWordButtonText: {
+      color: "#FFFFFF",
+      fontSize: 15,
+      fontWeight: "600",
+    },
+    searchWordsList: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 12,
+    },
+    searchWordItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colorScheme === "dark" ? "#1C1C1E" : "#FFFFFF",
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 20,
+      gap: 8,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 1,
+    },
+    checkbox: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      borderWidth: 2,
+      borderColor: colorScheme === "dark" ? "#48484A" : "#C7C7CC",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    checkboxSelected: {
+      backgroundColor: colorScheme === "dark" ? "#0A84FF" : "#007AFF",
+      borderColor: colorScheme === "dark" ? "#0A84FF" : "#007AFF",
+    },
+    colorIndicator: {
+      width: 12,
+      height: 12,
+      borderRadius: 3,
+    },
+    searchWordText: {
+      fontSize: 14,
+      color: colors.text,
+      fontWeight: "500",
+    },
+    previewContainer: {
+      backgroundColor: colorScheme === "dark" ? "#1C1C1E" : "#FFFFFF",
+      padding: 16,
+      borderRadius: 12,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 3,
+      elevation: 2,
+    },
+    previewText: {
+      fontSize: 15,
+      color: colors.text,
+      lineHeight: 20,
+    },
+    buttonContainer: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      marginTop: 40,
+      gap: 12,
+    },
+    cancelButton: {
+      backgroundColor: colorScheme === "dark" ? "#48484A" : "#E5E5EA",
+    },
+    saveButton: {
+      backgroundColor: colorScheme === "dark" ? "#0A84FF" : "#007AFF",
+      shadowColor: colorScheme === "dark" ? "#0A84FF" : "#007AFF",
+      shadowOpacity: 0.3,
+    },
+    cancelButtonText: {
+      color: colors.text,
+      fontSize: 17,
+      fontWeight: "600",
+      letterSpacing: 0.2,
+      marginLeft: 8,
+    },
+    saveButtonText: {
+      color: "#FFFFFF",
+      fontSize: 17,
+      fontWeight: "600",
+      letterSpacing: 0.2,
+      marginLeft: 8,
+    },
+    deleteButton: {
+      marginTop: 20,
+      backgroundColor: "#FF3B30",
+      shadowColor: "#FF3B30",
+      shadowOpacity: 0.3,
+    },
+    deleteButtonText: {
+      color: "#FFFFFF",
+      fontSize: 17,
+      fontWeight: "600",
+      letterSpacing: 0.2,
+      marginLeft: 8,
+    },
+  });
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <ScrollView style={styles.scrollView}>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollViewContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.form}>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>ID * (必須)</Text>
@@ -159,7 +389,7 @@ export function IDForm({
               value={title}
               onChangeText={setTitle}
               placeholder="例: 1234567"
-              placeholderTextColor="#999"
+              placeholderTextColor={colorScheme === "dark" ? "#8E8E93" : "#999"}
             />
           </View>
 
@@ -170,7 +400,7 @@ export function IDForm({
               value={notes}
               onChangeText={setNotes}
               placeholder="IDの説明 (例: かわいい子犬の動画)"
-              placeholderTextColor="#999"
+              placeholderTextColor={colorScheme === "dark" ? "#8E8E93" : "#999"}
               multiline
               numberOfLines={4}
             />
@@ -183,7 +413,7 @@ export function IDForm({
                 style={styles.addNewButton}
                 onPress={() => setShowAddNewWord(!showAddNewWord)}
               >
-                <IconSymbol name="plus" size={16} color="#007AFF" />
+                <IconSymbol name="plus" size={16} color={colorScheme === "dark" ? "#0A84FF" : "#007AFF"} />
                 <Text style={styles.addNewButtonText}>新規追加</Text>
               </TouchableOpacity>
             </View>
@@ -195,7 +425,7 @@ export function IDForm({
                   value={newSearchWord}
                   onChangeText={setNewSearchWord}
                   placeholder="新しいキーワード"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={colorScheme === "dark" ? "#8E8E93" : "#999"}
                 />
                 <View style={styles.colorPicker}>
                   {SEARCH_WORD_COLORS.map((color) => (
@@ -279,7 +509,7 @@ export function IDForm({
               <IconSymbol
                 name="arrow.uturn.backward"
                 size={20}
-                color="#000000"
+                color={colors.text}
               />
               <Text style={styles.cancelButtonText}>キャンセル</Text>
             </TouchableOpacity>
@@ -294,10 +524,10 @@ export function IDForm({
 
           {initialData && onDelete && (
             <TouchableOpacity
-              style={styles.deleteButton}
+              style={[styles.button, styles.deleteButton]}
               onPress={handleDelete}
             >
-              <IconSymbol name="trash" size={20} color="#FF3B30" />
+              <IconSymbol name="trash" size={20} color="#FFFFFF" />
               <Text style={styles.deleteButtonText}>削除</Text>
             </TouchableOpacity>
           )}
@@ -306,227 +536,3 @@ export function IDForm({
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F2F2F7",
-  },
-  scrollView: {
-    flex: 1,
-  },
-  form: {
-    padding: 24,
-  },
-  inputGroup: {
-    marginBottom: 24,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 10,
-    color: "#000000",
-    letterSpacing: 0.2,
-  },
-  input: {
-    borderWidth: 0,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    backgroundColor: "#FFFFFF",
-    color: "#000000",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  passwordContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  passwordInput: {
-    flex: 1,
-  },
-  passwordToggle: {
-    position: "absolute",
-    right: 16,
-    padding: 8,
-  },
-  passwordToggleText: {
-    color: "#007AFF",
-    fontSize: 15,
-    fontWeight: "500",
-  },
-  notesInput: {
-    height: 120,
-    textAlignVertical: "top",
-    paddingTop: 16,
-  },
-  buttonContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 40,
-    gap: 12,
-  },
-  button: {
-    flex: 1,
-    flexDirection: "row",
-    padding: 18,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  cancelButton: {
-    backgroundColor: "#E5E5EA",
-  },
-  saveButton: {
-    backgroundColor: "#007AFF",
-    shadowColor: "#007AFF",
-    shadowOpacity: 0.3,
-  },
-  cancelButtonText: {
-    color: "#000000",
-    fontSize: 17,
-    fontWeight: "600",
-    letterSpacing: 0.2,
-    marginLeft: 8,
-  },
-  saveButtonText: {
-    color: "#FFFFFF",
-    fontSize: 17,
-    fontWeight: "600",
-    letterSpacing: 0.2,
-    marginLeft: 8,
-  },
-  deleteButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
-    marginTop: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#FF3B30",
-  },
-  deleteButtonText: {
-    color: "#FF3B30",
-    fontSize: 17,
-    fontWeight: "600",
-    marginLeft: 8,
-  },
-  searchWordHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  addNewButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  addNewButtonText: {
-    fontSize: 14,
-    color: "#007AFF",
-    fontWeight: "500",
-  },
-  newWordContainer: {
-    backgroundColor: "#F2F2F7",
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  colorPicker: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 12,
-    marginBottom: 16,
-  },
-  colorOption: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  selectedColor: {
-    borderColor: "#007AFF",
-    borderWidth: 3,
-  },
-  newWordActions: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  cancelNewWordButton: {
-    backgroundColor: "#E5E5EA",
-    flex: 1,
-  },
-  addNewWordButton: {
-    backgroundColor: "#007AFF",
-    flex: 1,
-  },
-  cancelNewWordButtonText: {
-    color: "#000000",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  addNewWordButtonText: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  searchWordsList: {
-    gap: 12,
-  },
-  searchWordItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 8,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: "#C7C7CC",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  checkboxSelected: {
-    backgroundColor: "#007AFF",
-    borderColor: "#007AFF",
-  },
-  colorIndicator: {
-    width: 16,
-    height: 16,
-    borderRadius: 3,
-  },
-  searchWordText: {
-    flex: 1,
-    fontSize: 16,
-    color: "#000000",
-  },
-  previewContainer: {
-    backgroundColor: "#FFFFFF",
-    padding: 16,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  previewText: {
-    fontSize: 16,
-    color: "#666666",
-    fontWeight: "500",
-  },
-});

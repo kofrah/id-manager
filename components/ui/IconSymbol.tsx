@@ -18,10 +18,19 @@ const MAPPING = {
   'paperplane.fill': 'send',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
+  'chevron.left': 'chevron-left',
   'funnel': 'filter-alt',
   'magnifyingglass': 'search',
   'chevron.up': 'keyboard-arrow-up',
   'chevron.down': 'keyboard-arrow-down',
+  'moon.fill': 'dark-mode',
+  'sun.max.fill': 'light-mode',
+  'checkmark': 'check',
+  'plus': 'add',
+  'trash': 'delete',
+  'xmark.circle.fill': 'cancel',
+  'xmark': 'close',
+  'arrow.uturn.backward': 'undo',
 };
 
 /**

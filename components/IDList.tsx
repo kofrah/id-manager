@@ -5,6 +5,8 @@ import DraggableFlatList, { ScaleDecorator, RenderItemParams } from 'react-nativ
 import { IDItem, SearchWord, getAllSearchWords, updateSortOrder } from '@/utils/database';
 import { IconSymbol } from './ui/IconSymbol';
 import * as Haptics from 'expo-haptics';
+import { useDarkMode } from '@/contexts/DarkModeContext';
+import { Colors } from '@/constants/Colors';
 
 interface IDListProps {
   ids: IDItem[];
@@ -16,6 +18,8 @@ interface IDListProps {
 }
 
 export function IDList({ ids, onSelectID, onDeleteID, onRefresh, refreshing, onSearch }: IDListProps) {
+  const { colorScheme } = useDarkMode();
+  const colors = Colors[colorScheme];
   const [searchWords, setSearchWords] = useState<SearchWord[]>([]);
   const [data, setData] = useState(ids);
   const swipeableRefs = useRef<{ [key: number]: Swipeable | null }>({});
@@ -62,6 +66,103 @@ export function IDList({ ids, onSelectID, onDeleteID, onRefresh, refreshing, onS
       ]
     );
   };
+
+  const styles = StyleSheet.create({
+    item: {
+      backgroundColor: colorScheme === 'dark' ? '#1C1C1E' : '#FFFFFF',
+      padding: 20,
+      marginHorizontal: 20,
+      marginVertical: 6,
+      borderRadius: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    activeItem: {
+      shadowOpacity: 0.2,
+      shadowRadius: 12,
+      elevation: 8,
+    },
+    itemContent: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    itemInfo: {
+      flex: 1,
+      marginRight: 12,
+    },
+    titleContainer: {
+      flexDirection: 'column',
+      marginBottom: 4,
+      gap: 6,
+    },
+    title: {
+      fontSize: 17,
+      fontWeight: '600',
+      color: colors.text,
+      letterSpacing: 0.2,
+    },
+    searchWordBadges: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 6,
+    },
+    searchWordItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 3,
+      backgroundColor: colorScheme === 'dark' ? '#2C2C2E' : '#F2F2F7',
+      paddingHorizontal: 4,
+      paddingVertical: 2,
+      borderRadius: 4,
+    },
+    colorIndicator: {
+      width: 8,
+      height: 8,
+      borderRadius: 2,
+    },
+    searchWordText: {
+      fontSize: 10,
+      fontWeight: '500',
+      color: colorScheme === 'dark' ? '#8E8E93' : '#666666',
+    },
+    notes: {
+      fontSize: 14,
+      color: colorScheme === 'dark' ? '#8E8E93' : '#8E8E93',
+      lineHeight: 18,
+    },
+    searchButton: {
+      padding: 10,
+    },
+    deleteAction: {
+      backgroundColor: '#FF3B30',
+      justifyContent: 'center',
+      alignItems: 'flex-end',
+      paddingHorizontal: 30,
+      marginVertical: 6,
+      marginRight: 20,
+      borderRadius: 16,
+    },
+    deleteActionText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    emptyContainer: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 80,
+    },
+    emptyText: {
+      fontSize: 17,
+      color: colorScheme === 'dark' ? '#8E8E93' : '#8E8E93',
+      letterSpacing: 0.2,
+    },
+  });
 
   const renderRightActions = () => (
     <View style={styles.deleteAction}>
@@ -126,7 +227,7 @@ export function IDList({ ids, onSelectID, onDeleteID, onRefresh, refreshing, onS
                 onPress={() => onSearch(item.notes ? `${item.title} ${item.notes}` : item.title, item)}
                 hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
               >
-                <IconSymbol name="magnifyingglass" size={20} color="#007AFF" />
+                <IconSymbol name="magnifyingglass" size={20} color={colors.tint} />
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
@@ -151,100 +252,3 @@ export function IDList({ ids, onSelectID, onDeleteID, onRefresh, refreshing, onS
     </GestureHandlerRootView>
   );
 }
-
-const styles = StyleSheet.create({
-  item: {
-    backgroundColor: '#FFFFFF',
-    padding: 20,
-    marginHorizontal: 20,
-    marginVertical: 6,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  activeItem: {
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  itemContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  itemInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
-  titleContainer: {
-    flexDirection: 'column',
-    marginBottom: 4,
-    gap: 6,
-  },
-  title: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#000000',
-    letterSpacing: 0.2,
-  },
-  searchWordBadges: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  searchWordItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: '#F2F2F7',
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  colorIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 2,
-  },
-  searchWordText: {
-    fontSize: 10,
-    fontWeight: '500',
-    color: '#666666',
-  },
-  notes: {
-    fontSize: 14,
-    color: '#8E8E93',
-    lineHeight: 18,
-  },
-  searchButton: {
-    padding: 10,
-  },
-  deleteAction: {
-    backgroundColor: '#FF3B30',
-    justifyContent: 'center',
-    alignItems: 'flex-end',
-    paddingHorizontal: 30,
-    marginVertical: 6,
-    marginRight: 20,
-    borderRadius: 16,
-  },
-  deleteActionText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 80,
-  },
-  emptyText: {
-    fontSize: 17,
-    color: '#8E8E93',
-    letterSpacing: 0.2,
-  },
-});
