@@ -31,6 +31,8 @@ const MAPPING = {
   'xmark.circle.fill': 'cancel',
   'xmark': 'close',
   'arrow.uturn.backward': 'undo',
+  'tag.fill': 'label',
+  'note.text': 'description',
 };
 
 /**

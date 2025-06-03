@@ -21,6 +21,7 @@ export interface SearchWord {
 
 export interface GlobalSettings {
   useSearchWords: boolean;
+  searchInMemo: boolean;
   darkMode?: "system" | "light" | "dark";
 }
 
@@ -123,6 +124,11 @@ export const initDatabase = async () => {
   const useSearchWordsExists = await database.getFirstAsync('SELECT * FROM global_settings WHERE key = ?', ['useSearchWords']);
   if (!useSearchWordsExists) {
     await database.runAsync('INSERT INTO global_settings (key, value) VALUES (?, ?)', ['useSearchWords', 'true']);
+  }
+  
+  const searchInMemoExists = await database.getFirstAsync('SELECT * FROM global_settings WHERE key = ?', ['searchInMemo']);
+  if (!searchInMemoExists) {
+    await database.runAsync('INSERT INTO global_settings (key, value) VALUES (?, ?)', ['searchInMemo', 'true']);
   }
   
   const darkModeExists = await database.getFirstAsync('SELECT * FROM global_settings WHERE key = ?', ['darkMode']);
@@ -407,10 +413,12 @@ export const setSearchPrefix = async (_prefix: string): Promise<void> => {
 export const getGlobalSettings = async (): Promise<GlobalSettings> => {
   const database = ensureDatabase();
   const useSearchWords = await database.getFirstAsync<{ value: string }>('SELECT value FROM global_settings WHERE key = ?', ['useSearchWords']);
+  const searchInMemo = await database.getFirstAsync<{ value: string }>('SELECT value FROM global_settings WHERE key = ?', ['searchInMemo']);
   const darkMode = await database.getFirstAsync<{ value: string }>('SELECT value FROM global_settings WHERE key = ?', ['darkMode']);
   
   return {
     useSearchWords: useSearchWords?.value === 'true',
+    searchInMemo: searchInMemo?.value === 'true',
     darkMode: (darkMode?.value as "system" | "light" | "dark") || "system"
   };
 };
@@ -424,13 +432,13 @@ export const buildSearchQuery = async (baseQuery: string, itemSearchWordIds?: nu
   const settings = await getGlobalSettings();
   let searchWords: string[] = [];
   
-  // グローバル設定がオンの場合、アクティブなキーワードを追加
+  // グローバル設定がオンの場合、アクティブな検索タグを追加
   if (settings.useSearchWords) {
     const activeWords = await getActiveSearchWords();
     searchWords.push(...activeWords.map(w => w.word));
   }
   
-  // アイテム固有のキーワードがある場合は必ず追加（重複除去）
+  // アイテム固有の検索タグがある場合は必ず追加（重複除去）
   if (itemSearchWordIds && itemSearchWordIds.length > 0) {
     const itemWords = await getAllSearchWords();
     const itemSpecificWords = itemWords

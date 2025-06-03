@@ -1,4 +1,6 @@
 import { IconSymbol } from "@/components/ui/IconSymbol";
+import { Colors } from "@/constants/Colors";
+import { useDarkMode } from "@/contexts/DarkModeContext";
 import { useRouter } from "expo-router";
 import React from "react";
 import {
@@ -9,8 +11,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useDarkMode } from "@/contexts/DarkModeContext";
-import { Colors } from "@/constants/Colors";
 
 interface SettingItemProps {
   icon: string;
@@ -54,9 +54,7 @@ const SettingItem: React.FC<SettingItemProps> = ({
           <Text style={[styles.settingTitle, { color: colors.text }]}>
             {title}
           </Text>
-          {subtitle && (
-            <Text style={styles.settingSubtitle}>{subtitle}</Text>
-          )}
+          {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
         </View>
       </View>
       {showArrow && (
@@ -171,17 +169,17 @@ export default function SettingsScreen() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>一般</Text>
-          
+
           <SettingItem
             icon="magnifyingglass"
             title="検索設定"
-            subtitle="検索時のキーワード設定"
+            subtitle="検索時のタグとメモの設定"
             onPress={() => router.push("/settings/search")}
             colorScheme={colorScheme}
             colors={colors}
             styles={styles}
           />
-          
+
           <SettingItem
             icon="moon.fill"
             title="ダークモード"

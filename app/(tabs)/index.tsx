@@ -1,20 +1,24 @@
+import { FilterIcon } from "@/components/FilterIcon";
 import { IDForm } from "@/components/IDForm";
 import { IDList } from "@/components/IDList";
 import { IconSymbol } from "@/components/ui/IconSymbol";
-import { FilterIcon } from "@/components/FilterIcon";
+import { Colors } from "@/constants/Colors";
+import { useDarkMode } from "@/contexts/DarkModeContext";
 import {
   IDItem,
+  SearchWord,
   buildSearchQuery,
   createID,
   deleteID,
   getAllIDs,
   getAllSearchWords,
-  SearchWord,
+  getGlobalSettings,
   initDatabase,
   updateID,
 } from "@/utils/database";
 import React, { useEffect, useState } from "react";
 import {
+  Dimensions,
   Linking,
   Modal,
   StyleSheet,
@@ -22,19 +26,19 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  Dimensions,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { GestureHandlerRootView, PanGestureHandler } from "react-native-gesture-handler";
-import { useDarkMode } from "@/contexts/DarkModeContext";
-import { Colors } from "@/constants/Colors";
+import {
+  GestureHandlerRootView,
+  PanGestureHandler,
+} from "react-native-gesture-handler";
 import Animated, {
+  runOnJS,
   useAnimatedGestureHandler,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  runOnJS,
 } from "react-native-reanimated";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function HomeScreen() {
   const { colorScheme } = useDarkMode();
@@ -48,6 +52,7 @@ export default function HomeScreen() {
   const [showFilterDialog, setShowFilterDialog] = useState(false);
   const [selectedKeywords, setSelectedKeywords] = useState<number[]>([]);
   const [allKeywords, setAllKeywords] = useState<SearchWord[]>([]);
+  const [searchInMemo, setSearchInMemo] = useState<boolean>(true);
 
   // Swipeable modal animation values
   const translateY = useSharedValue(0);
@@ -59,36 +64,41 @@ export default function HomeScreen() {
 
   useEffect(() => {
     loadKeywords();
+    loadGlobalSettings();
   }, []);
 
   useEffect(() => {
     let filtered = ids;
-    
+
     // テキスト検索でフィルタリング
     if (searchQuery.trim() !== "") {
-      filtered = filtered.filter(
-        (item) =>
-          item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (item.notes &&
-            item.notes.toLowerCase().includes(searchQuery.toLowerCase()))
-      );
+      filtered = filtered.filter((item) => {
+        const titleMatch = item.title
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase());
+        const notesMatch =
+          searchInMemo &&
+          item.notes &&
+          item.notes.toLowerCase().includes(searchQuery.toLowerCase());
+        return titleMatch || notesMatch;
+      });
     }
-    
-    // キーワードフィルターでフィルタリング
+
+    // 検索タグフィルターでフィルタリング
     if (selectedKeywords.length > 0) {
       filtered = filtered.filter((item) => {
         if (!item.searchWordIds || item.searchWordIds.length === 0) {
           return false;
         }
-        // 選択されたキーワードのいずれかを含むアイテムを表示
-        return selectedKeywords.some(keywordId => 
+        // 選択された検索タグのいずれかを含むアイテムを表示
+        return selectedKeywords.some((keywordId) =>
           item.searchWordIds!.includes(keywordId)
         );
       });
     }
-    
+
     setFilteredIds(filtered);
-  }, [ids, searchQuery, selectedKeywords]);
+  }, [ids, searchQuery, selectedKeywords, searchInMemo]);
 
   const initializeApp = async () => {
     await initDatabase();
@@ -98,6 +108,11 @@ export default function HomeScreen() {
   const loadKeywords = async () => {
     const keywords = await getAllSearchWords();
     setAllKeywords(keywords);
+  };
+
+  const loadGlobalSettings = async () => {
+    const settings = await getGlobalSettings();
+    setSearchInMemo(settings.searchInMemo);
   };
 
   const loadIDs = async () => {
@@ -192,7 +207,10 @@ export default function HomeScreen() {
   const handleWebSearch = async () => {
     if (!searchQuery.trim()) return;
 
-    const fullSearchQuery = await buildSearchQuery(searchQuery, selectedKeywords);
+    const fullSearchQuery = await buildSearchQuery(
+      searchQuery,
+      selectedKeywords
+    );
 
     // Use x-web-search URL scheme to let the OS decide which browser to use
     const url = `x-web-search://?${encodeURIComponent(fullSearchQuery)}`;
@@ -212,9 +230,9 @@ export default function HomeScreen() {
   };
 
   const handleKeywordToggle = (keywordId: number) => {
-    setSelectedKeywords(prev => 
+    setSelectedKeywords((prev) =>
       prev.includes(keywordId)
-        ? prev.filter(id => id !== keywordId)
+        ? prev.filter((id) => id !== keywordId)
         : [...prev, keywordId]
     );
   };
@@ -228,8 +246,23 @@ export default function HomeScreen() {
     setSearchQuery(query);
   };
 
-  const handleItemWebSearch = async (query: string, item?: IDItem) => {
-    const fullSearchQuery = await buildSearchQuery(query, item?.searchWordIds);
+  const handleItemWebSearch = async (
+    query: string,
+    item?: IDItem,
+    includeNotes?: boolean
+  ) => {
+    const settings = await getGlobalSettings();
+    let searchQuery = query;
+
+    // メモ検索がONで、includeNotesがtrueの場合はメモも含める
+    if (settings.searchInMemo && includeNotes && item?.notes) {
+      searchQuery = `${query} ${item.notes}`;
+    }
+
+    const fullSearchQuery = await buildSearchQuery(
+      searchQuery,
+      item?.searchWordIds
+    );
 
     // Use x-web-search URL scheme to let the OS decide which browser to use
     const url = `x-web-search://?${encodeURIComponent(fullSearchQuery)}`;
@@ -454,7 +487,7 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>ID管理</Text>
+        <Text style={styles.headerTitle}>ID一覧</Text>
       </View>
 
       <View style={styles.searchWrapper}>
@@ -473,16 +506,18 @@ export default function HomeScreen() {
             </TouchableOpacity>
           )}
         </View>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[
             styles.filterButton,
-            selectedKeywords.length > 0 ? styles.filterButtonActive : styles.filterButtonInactive
-          ]} 
+            selectedKeywords.length > 0
+              ? styles.filterButtonActive
+              : styles.filterButtonInactive,
+          ]}
           onPress={handleFilterPress}
         >
-          <FilterIcon 
-            size={20} 
-            color={selectedKeywords.length > 0 ? "#FFFFFF" : "#8E8E93"} 
+          <FilterIcon
+            size={20}
+            color={selectedKeywords.length > 0 ? "#FFFFFF" : "#8E8E93"}
           />
         </TouchableOpacity>
       </View>
@@ -533,22 +568,29 @@ export default function HomeScreen() {
         animationType="slide"
         transparent={true}
       >
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.filterDialogOverlay}
           activeOpacity={1}
           onPress={() => setShowFilterDialog(false)}
         >
-          <TouchableOpacity style={styles.filterDialog} activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+          <TouchableOpacity
+            style={styles.filterDialog}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
             <View style={styles.filterHeader}>
               <Text style={styles.filterTitle}>フィルター</Text>
               <TouchableOpacity onPress={() => setShowFilterDialog(false)}>
                 <IconSymbol name="xmark" size={20} color="#8E8E93" />
               </TouchableOpacity>
             </View>
-            
+
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>キーワード</Text>
-              <TouchableOpacity style={styles.smallClearButton} onPress={clearFilter}>
+              <Text style={styles.sectionTitle}>検索タグ</Text>
+              <TouchableOpacity
+                style={styles.smallClearButton}
+                onPress={clearFilter}
+              >
                 <Text style={styles.smallClearButtonText}>クリア</Text>
               </TouchableOpacity>
             </View>
@@ -558,15 +600,24 @@ export default function HomeScreen() {
                   key={keyword.id}
                   style={[
                     styles.keywordItem,
-                    selectedKeywords.includes(keyword.id) && styles.keywordItemSelected
+                    selectedKeywords.includes(keyword.id) &&
+                      styles.keywordItemSelected,
                   ]}
                   onPress={() => handleKeywordToggle(keyword.id)}
                 >
-                  <View style={[styles.keywordColor, { backgroundColor: keyword.color }]} />
-                  <Text style={[
-                    styles.keywordText,
-                    selectedKeywords.includes(keyword.id) && styles.keywordTextSelected
-                  ]}>
+                  <View
+                    style={[
+                      styles.keywordColor,
+                      { backgroundColor: keyword.color },
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.keywordText,
+                      selectedKeywords.includes(keyword.id) &&
+                        styles.keywordTextSelected,
+                    ]}
+                  >
                     {keyword.word}
                   </Text>
                 </TouchableOpacity>

@@ -114,7 +114,7 @@ export function IDForm({
 
   const handleAddNewSearchWord = async () => {
     if (!newSearchWord.trim()) {
-      alert("キーワードを入力してください");
+      alert("検索タグを入力してください");
       return;
     }
     try {
@@ -123,10 +123,10 @@ export function IDForm({
       setNewSearchWordColor(SEARCH_WORD_COLORS[0]);
       setShowAddNewWord(false);
       await loadSearchWords();
-      alert("キーワードを追加しました");
+      alert("検索タグを追加しました");
     } catch (error) {
       console.error("Error adding search word:", error);
-      alert("キーワードの追加に失敗しました");
+      alert("検索タグの追加に失敗しました");
     }
   };
 
@@ -408,7 +408,7 @@ export function IDForm({
 
           <View style={styles.inputGroup}>
             <View style={styles.searchWordHeader}>
-              <Text style={styles.label}>キーワード</Text>
+              <Text style={styles.label}>検索タグ</Text>
               <TouchableOpacity
                 style={styles.addNewButton}
                 onPress={() => setShowAddNewWord(!showAddNewWord)}
@@ -424,7 +424,7 @@ export function IDForm({
                   style={styles.input}
                   value={newSearchWord}
                   onChangeText={setNewSearchWord}
-                  placeholder="新しいキーワード"
+                  placeholder="新しい検索タグ"
                   placeholderTextColor={colorScheme === "dark" ? "#8E8E93" : "#999"}
                 />
                 <View style={styles.colorPicker}>

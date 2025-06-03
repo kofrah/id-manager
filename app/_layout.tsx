@@ -16,6 +16,8 @@ function RootLayoutContent() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="settings/search" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="settings/darkmode" options={{ headerShown: false, presentation: 'modal' }} />
+        <Stack.Screen name="settings/tag" options={{ headerShown: false, presentation: 'modal' }} />
+        <Stack.Screen name="settings/memo" options={{ headerShown: false, presentation: 'modal' }} />
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
